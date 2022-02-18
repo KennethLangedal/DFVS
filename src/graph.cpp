@@ -67,14 +67,14 @@ const bitvector<N>& graph::in(size_t u) const {
 }
 
 void graph::print_edgelist(std::ostream& os) const {
-    os << "G.add_edges_from([";
+    os << "import networkx as nx\nimport numpy as np\nimport matplotlib.pyplot as plt\n\nG = nx.DiGraph()\nedges = [";
     std::string res = "";
     visit(active, [&](size_t u) {
         visit(out_edges[u],
               [&](size_t v) { res += " (" + std::to_string(u) + "," + std::to_string(v) + "),"; });
     });
     if (res != "") res.pop_back();
-    os << res << "])" << std::endl;
+    os << res << "]\n\nG.add_edges_from(edges)\ndirected_edges = []\nundirected_edges = []\nfor u, v in G.edges():\n    if G.has_edge(v, u):\n        undirected_edges.append((u, v))\n    else:\n        directed_edges.append((u, v))\n\npos = nx.spring_layout(G, iterations=50)\nnx.draw_networkx_nodes(G, pos)\nnx.draw_networkx_labels(G, pos)\nnx.draw_networkx_edges(G, pos, edgelist=directed_edges)\nnx.draw_networkx_edges(G, pos, edgelist=undirected_edges, arrows=False, edge_color='red')\nplt.show()\n" << std::endl;
 }
 
 std::istream& operator>>(std::istream& is, graph& g) {
@@ -100,17 +100,17 @@ std::istream& operator>>(std::istream& is, graph& g) {
         }
     };
 
-    size_t N, E, tmp, u, v;
-    fscan(N);
+    size_t n, E, tmp, u, v;
+    fscan(n);
     fscan(E);
     fscan(tmp);
-    assert(N < N * 64);
+    assert(n <= N * 64);
     g.active.fill(~0ull);
     g.out_edges.resize(N * 64, {});
     g.in_edges.resize(N * 64, {});
 
     u = 0;
-    for (size_t i = 0; i < E; ++i) {
+    while (u < n) {
         fscan(v);
         if (v > 0) {
             set(g.out_edges[u], v - 1);
