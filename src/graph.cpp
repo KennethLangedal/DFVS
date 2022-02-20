@@ -1,6 +1,10 @@
 #include "graph.hpp"
 
-#include <string>
+void graph::deactive_edge(size_t u, size_t v) {
+    assert(u < N * 64 && v < N * 64 && test(out(u), v) && test(in(v), u));
+    reset(out_edges[u], v);
+    reset(in_edges[v], u);
+}
 
 void graph::deactive_vertex(size_t u) {
     assert(u < N * 64);
@@ -67,14 +71,9 @@ const bitvector<N>& graph::in(size_t u) const {
 }
 
 void graph::print_edgelist(std::ostream& os) const {
-    os << "import networkx as nx\nimport numpy as np\nimport matplotlib.pyplot as plt\n\nG = nx.DiGraph()\nedges = [";
-    std::string res = "";
     visit(active, [&](size_t u) {
-        visit(out_edges[u],
-              [&](size_t v) { res += " (" + std::to_string(u) + "," + std::to_string(v) + "),"; });
+        visit(out_edges[u], [&](size_t v) { os << u << " " << v << std::endl; });
     });
-    if (res != "") res.pop_back();
-    os << res << "]\n\nG.add_edges_from(edges)\ndirected_edges = []\nundirected_edges = []\nfor u, v in G.edges():\n    if G.has_edge(v, u):\n        undirected_edges.append((u, v))\n    else:\n        directed_edges.append((u, v))\n\npos = nx.spring_layout(G, iterations=50)\nnx.draw_networkx_nodes(G, pos)\nnx.draw_networkx_labels(G, pos)\nnx.draw_networkx_edges(G, pos, edgelist=directed_edges)\nnx.draw_networkx_edges(G, pos, edgelist=undirected_edges, arrows=False, edge_color='red')\nplt.show()\n" << std::endl;
 }
 
 std::istream& operator>>(std::istream& is, graph& g) {

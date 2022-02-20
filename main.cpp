@@ -21,7 +21,7 @@ int main(int, char **) {
         for (size_t u : fvs)
             fs << u + 1 << endl;
     } else if (n < 100) {
-        ofstream fs("scripts/visualize.py");
+        ofstream fs("scripts/plot_data");
         g.print_edgelist(fs);
     }
 

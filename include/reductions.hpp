@@ -1,9 +1,9 @@
 #pragma once
 #include "graph.hpp"
 
-const size_t num_reductions = 6;
+const size_t num_reductions = 7;
 
-enum class reductions { zero_degree, self_edge, one_degree, isolated_vertex, twin_vertices, dominating_vertex };
+enum class reductions { zero_degree, self_edge, one_degree, redundant_edges, isolated_vertex, twin_vertices, dominating_vertex };
 
 struct graph_search {
     std::vector<std::vector<size_t>> search;

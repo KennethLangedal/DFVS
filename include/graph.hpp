@@ -12,6 +12,7 @@ class graph {
     bitvector<N> active;
 
    public:
+    void deactive_edge(size_t u, size_t v);
     void deactive_vertex(size_t u);
     void deactive_single_out(size_t u);
     void deactive_single_in(size_t u);

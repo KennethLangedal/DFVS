@@ -1,11 +1,24 @@
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
+# from pyvis.network import Network
 
 G = nx.DiGraph()
-edges = [ (332,343), (332,344), (333,332), (333,343), (333,349), (343,332), (343,333), (344,332), (344,333), (344,349), (349,332), (349,333), (349,344)]
+f = open("scripts/plot_data", "r")
+data = f.read().split('\n')
+edges = []
+for x in data:
+    xs = x.split(" ")
+    if len(xs) == 2:
+        edges.append((int(xs[0]), int(xs[1])))
 
 G.add_edges_from(edges)
+
+# net = Network(notebook=True, directed=True)
+
+# net.from_nx(G)
+# net.show("example.html")
+
 directed_edges = []
 undirected_edges = []
 for u, v in G.edges():
