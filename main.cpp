@@ -10,17 +10,19 @@ int main(int, char **) {
     cin >> g;
 
     graph_search gs;
-    vector<size_t> fvs;
-    reduce_graph(g, fvs, gs);
+    bitvector<N> fvs{};
+    reduce_graph(g, fvs, gs, true);
 
     size_t n = popcount(g.active_vertices());
     cout << n << endl;
 
     if (n == 0) {
+        g.unfold_graph(0, fvs);
         ofstream fs("data/solution/tmp");
-        for (size_t u : fvs)
-            fs << u + 1 << endl;
-    } else if (n < 100) {
+        visit(fvs, [&](size_t v) {
+            fs << v + 1 << endl;
+        });
+    } else if (n < 160) {
         ofstream fs("scripts/plot_data");
         g.print_edgelist(fs);
     }
