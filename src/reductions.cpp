@@ -80,9 +80,20 @@ bool redundant_edges(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u) {
         return true;
     }
 
-    // TODO, add efficient DOME rule
+    bool res = false;
+    bitvector<N> single_out = g.out(u) & ~g.in(u), single_in = g.in(u) & ~g.out(u);
+    size_t count = popcount(single_out);
+    visit(single_in, [&](size_t v) {
+        if (intersection_size(g.out(v), single_out) == count) {
+            g.deactive_edge(v, u);
+            push_search(gs, v);
+            res = true;
+        }
+    });
+    if (res)
+        push_search(gs, u);
 
-    return false;
+    return res;
 }
 
 bool isolated_vertex_reduction(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u) {
@@ -155,13 +166,24 @@ bool neighborhood_fold(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u) 
             return true;
         }
     }
+
+    // Begin Unsafe reduction
+    auto tmp = g.in(u) & g.out(u);
+    if (popcount(tmp) == 1) {
+        size_t v = first(tmp);
+        add_to_fvs(g, fvs, gs, v);
+        return true;
+    }
+    // End
+
     return false;
 }
 
-bool SCC_edge_reduction(graph &g, bitvector<N> &fvs, graph_search &gs) {
+bool SCC_edge_reduction(graph &g, bitvector<N> &fvs, const bitvector<N> &nodes, graph_search &gs, std::vector<bitvector<N>> &SCC) {
     gs.DFS_stack.clear();
     gs.L.clear();
     gs.DFS_visited.fill(0ull);
+    SCC.clear();
 
     std::function<void(size_t)> dfs_visit = [&](size_t u) {
         if (test(gs.DFS_visited, u))
@@ -171,23 +193,29 @@ bool SCC_edge_reduction(graph &g, bitvector<N> &fvs, graph_search &gs) {
         gs.L.push_back(u);
     };
 
-    visit(g.active_vertices(), [&](size_t u) {
+    visit(nodes, [&](size_t u) {
         gs.SCC_id[u] = N * 64;
         dfs_visit(u);
     });
 
-    std::function<void(size_t, size_t)> assign = [&](size_t u, size_t root) {
+    std::function<void(size_t, size_t, bitvector<N> &)> assign = [&](size_t u, size_t root, bitvector<N> &CC) {
         if (gs.SCC_id[u] != N * 64)
             return;
+        set(CC, u);
         gs.SCC_id[u] = root;
-        visit(g.in(u), [&](size_t v) { assign(v, root); });
+        visit(g.in(u), [&](size_t v) { assign(v, root, CC); });
     };
 
-    for (auto u : gs.L)
-        assign(u, u);
+    for (auto u : gs.L) {
+        if (gs.SCC_id[u] != N * 64)
+            continue;
+        bitvector<N> CC{};
+        assign(u, u, CC);
+        SCC.push_back(CC);
+    }
 
     bool res = false;
-    visit(g.active_vertices(), [&](size_t u) {
+    visit(nodes, [&](size_t u) {
         visit(g.out(u), [&](size_t v) {
             if (gs.SCC_id[u] != gs.SCC_id[v]) {
                 g.deactive_edge(u, v);
@@ -212,7 +240,7 @@ void deactivate_vertex(graph &g, graph_search &gs, size_t u) {
     g.deactive_vertex(u);
 }
 
-void reduce_graph(graph &g, bitvector<N> &fvs, graph_search &gs, bool SCC) {
+void reduce_graph(graph &g, bitvector<N> &fvs, const bitvector<N> &nodes, graph_search &gs, std::vector<bitvector<N>> &SCC) {
     size_t rule = 0;
     while (rule < num_reductions) {
         if (gs.search[rule].empty()) {
@@ -254,7 +282,7 @@ void reduce_graph(graph &g, bitvector<N> &fvs, graph_search &gs, bool SCC) {
                 rule = 0;
         }
 
-        if (rule == num_reductions && SCC && SCC_edge_reduction(g, fvs, gs)) {
+        if (rule == num_reductions && SCC_edge_reduction(g, fvs, nodes & g.active_vertices(), gs, SCC)) {
             rule = 0;
         }
     }

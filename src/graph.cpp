@@ -207,7 +207,10 @@ std::istream &operator>>(std::istream &is, graph &g) {
     fscan(n);
     fscan(E);
     fscan(tmp);
-    assert(n <= N * 64);
+    if (n > N * 64) {
+        std::cout << "Too Large" << std::endl;
+        exit(0);
+    }
     g.active.fill(~0ull);
     g.out_edges.resize(N * 64, {});
     g.in_edges.resize(N * 64, {});
