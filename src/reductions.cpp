@@ -45,16 +45,8 @@ bool self_edge_reduction(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u
 
 bool one_degree_reduction(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u) {
     assert(u < N * 64 && test(g.active_vertices(), u));
-    if (g.in_degree(u) == 1) {
-        visit(g.in(u), [&](size_t v) { push_search(gs, v); });
-        visit(g.out(u), [&](size_t v) { push_search(gs, v); });
-        g.deactive_single_in(u);
-        return true;
-    }
-    if (g.degree(u) == 1) {
-        visit(g.out(u), [&](size_t v) { push_search(gs, v); });
-        visit(g.in(u), [&](size_t v) { push_search(gs, v); });
-        g.deactive_single_out(u);
+    if (g.in_degree(u) == 1 || g.degree(u) == 1) {
+        exclude_from_fvs(g, fvs, gs, u);
         return true;
     }
     return false;
@@ -65,7 +57,7 @@ bool redundant_edges(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u) {
     bitvector<N> tmp = g.out(u) & g.in(u);
     if (tmp == g.out(u) && tmp != g.in(u)) {
         visit(g.in(u) & ~tmp, [&](size_t v) {
-            g.deactive_edge(v, u);
+            g.remove_edge(v, u);
             push_search(gs, v);
         });
         push_search(gs, u);
@@ -73,7 +65,7 @@ bool redundant_edges(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u) {
     }
     if (tmp == g.in(u) && tmp != g.out(u)) {
         visit(g.out(u) & ~tmp, [&](size_t v) {
-            g.deactive_edge(u, v);
+            g.remove_edge(u, v);
             push_search(gs, v);
         });
         push_search(gs, u);
@@ -85,7 +77,7 @@ bool redundant_edges(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u) {
     size_t count = popcount(single_out);
     visit(single_in, [&](size_t v) {
         if (intersection_size(g.out(v), single_out) == count) {
-            g.deactive_edge(v, u);
+            g.remove_edge(v, u);
             push_search(gs, v);
             res = true;
         }
@@ -167,14 +159,48 @@ bool neighborhood_fold(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u) 
         }
     }
 
-    // Begin Unsafe reduction
-    auto tmp = g.in(u) & g.out(u);
-    if (popcount(tmp) == 1) {
-        size_t v = first(tmp);
-        add_to_fvs(g, fvs, gs, v);
-        return true;
+    return false;
+}
+
+bool two_one_fold(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u) {
+    assert(u < N * 64 && test(g.active_vertices(), u));
+    if (g.out(u) == g.in(u) && popcount(g.in(u)) == 3) {
+        size_t v1 = N * 64, v2 = N * 64, w = N * 64;
+        visit(g.out(u), [&](size_t x) {
+            bitvector<N> in_and_out = g.out(x) & g.out(u);
+            if (popcount(in_and_out) == 1) { // TODO, FIX BUG, can only have one doulbe edge and no single edges
+                v1 = x;
+                v2 = first(in_and_out);
+            } else {
+                w = x;
+            }
+        });
+        if (v1 != N * 64 && v2 != N * 64 && w != N * 64) {
+            visit(g.out(w), [&](size_t x) { push_search(gs, x); });
+            visit(g.in(w), [&](size_t x) { push_search(gs, x); });
+            g.fold_two_one(u, v1, v2, w);
+            return true;
+        }
     }
-    // End
+
+    return false;
+}
+
+bool specific_pattern(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u) {
+    assert(u < N * 64 && test(g.active_vertices(), u));
+
+    bitvector<N> in_and_out = g.out(u) & g.in(u), out = g.out(u) & ~g.in(u), in = g.in(u) & ~g.out(u);
+    if (popcount(in_and_out) == 1) {
+        size_t v = first(in_and_out);
+        bool covers_all_in = true, covers_all_out = true;
+        visit(in, [&](size_t w) { covers_all_in = covers_all_in && test(g.in(v), w) && test(g.out(v), w); });
+        visit(out, [&](size_t w) { covers_all_out = covers_all_out && test(g.in(v), w) && test(g.out(v), w); });
+
+        if (covers_all_in || covers_all_out) {
+            add_to_fvs(g, fvs, gs, v);
+            return true;
+        }
+    }
 
     return false;
 }
@@ -218,7 +244,7 @@ bool SCC_edge_reduction(graph &g, bitvector<N> &fvs, const bitvector<N> &nodes, 
     visit(nodes, [&](size_t u) {
         visit(g.out(u), [&](size_t v) {
             if (gs.SCC_id[u] != gs.SCC_id[v]) {
-                g.deactive_edge(u, v);
+                g.remove_edge(u, v);
                 push_search(gs, u);
                 push_search(gs, v);
                 res = true;
@@ -234,10 +260,17 @@ void add_to_fvs(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u) {
     deactivate_vertex(g, gs, u);
 }
 
+void exclude_from_fvs(graph &g, bitvector<N> &fvs, graph_search &gs, size_t u) {
+    bitvector<N> in = g.in(u) & ~g.out(u), out = g.out(u) & ~g.in(u), both = g.in(u)&g.out(u);
+    visit(both, [&](size_t v) { g.add_edge(v, v); });
+    visit(in, [&](size_t v1) { visit(out, [&](size_t v2) { g.add_edge(v1, v2); }); });
+    deactivate_vertex(g, gs, u);
+}
+
 void deactivate_vertex(graph &g, graph_search &gs, size_t u) {
     visit(g.out(u), [&](size_t v) { push_search(gs, v); });
     visit(g.in(u), [&](size_t v) { push_search(gs, v); });
-    g.deactive_vertex(u);
+    g.remove_vertex(u);
 }
 
 void reduce_graph(graph &g, bitvector<N> &fvs, const bitvector<N> &nodes, graph_search &gs, std::vector<bitvector<N>> &SCC) {
@@ -274,6 +307,12 @@ void reduce_graph(graph &g, bitvector<N> &fvs, const bitvector<N> &nodes, graph_
                 break;
             case reductions::neighborhood_fold:
                 found = neighborhood_fold(g, fvs, gs, u);
+                break;
+            case reductions::two_one_fold:
+                found = two_one_fold(g, fvs, gs, u);
+                break;
+            case reductions::specific_pattern:
+                found = specific_pattern(g, fvs, gs, u);
                 break;
             default:
                 break;

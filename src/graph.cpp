@@ -1,84 +1,55 @@
 #include "graph.hpp"
 
-void graph::deactive_edge(size_t u, size_t v) {
-    assert(u < N * 64 && v < N * 64 && test(out(u), v) && test(in(v), u));
-    log.push_back({action::deactivate_edge, u, v, 0});
-    reset(out_edges[u], v);
-    reset(in_edges[v], u);
-}
-
-void graph::undo_deactive_edge(size_t u, size_t v) {
-    assert(u < N * 64 && v < N * 64 && !test(out(u), v) && !test(in(v), u));
+void graph::add_edge(size_t u, size_t v) {
+    assert(u < N * 64 && v < N * 64 && test(active, u) && test(active, v));
+    if (test(out(u), v) || test(in(v), u))
+        return;
+    log.push_back({action::add_edge, u, v, 0, 0});
     set(out_edges[u], v);
     set(in_edges[v], u);
 }
 
-void graph::deactive_vertex(size_t u) {
+void graph::undo_add_edge(size_t u, size_t v) {
+    assert(u < N * 64 && v < N * 64 && test(active, u) && test(active, v) && test(out(u), v) && test(in(v), u));
+    reset(out_edges[u], v);
+    reset(in_edges[v], u);
+}
+
+void graph::remove_edge(size_t u, size_t v) {
+    assert(u < N * 64 && v < N * 64 && test(active, u) && test(active, v) && test(out(u), v) && test(in(v), u));
+    log.push_back({action::remove_edge, u, v, 0, 0});
+    reset(out_edges[u], v);
+    reset(in_edges[v], u);
+}
+
+void graph::undo_remove_edge(size_t u, size_t v) {
+    assert(u < N * 64 && v < N * 64 && test(active, u) && test(active, v) && !test(out(u), v) && !test(in(v), u));
+    set(out_edges[u], v);
+    set(in_edges[v], u);
+}
+
+void graph::remove_vertex(size_t u) {
     assert(u < N * 64 && test(active, u));
-    log.push_back({action::deactivate_vertex, u, 0, 0});
+    log.push_back({action::remove_vertex, u, 0, 0, 0});
     reset(active, u);
     visit(out_edges[u], [&](size_t v) { reset(in_edges[v], u); });
     visit(in_edges[u], [&](size_t v) { reset(out_edges[v], u); });
 }
 
-void graph::undo_deactive_vertex(size_t u) {
+void graph::undo_remove_vertex(size_t u) {
     assert(u < N * 64 && !test(active, u));
     set(active, u);
     visit(out_edges[u], [&](size_t v) { set(in_edges[v], u); });
     visit(in_edges[u], [&](size_t v) { set(out_edges[v], u); });
 }
 
-void graph::deactive_single_out(size_t u) {
-    assert(u < N * 64 && test(active, u) && popcount(out_edges[u]) == 1);
-    deactive_vertex(u);
-    size_t v = first(out_edges[u]);
-    log.push_back({action::deactivate_single_out, u, v, 0});
-    out_edges[u] = in_edges[v]; // backup in(v)
-    visit(in_edges[u], [&](size_t w) {
-        set(out_edges[w], v);
-        set(in_edges[v], w);
-    });
-}
-
-void graph::undo_deactive_single_out(size_t u, size_t v) {
-    assert(u < N * 64 && !test(active, u));
-    visit(in_edges[v], [&](size_t w) { reset(out_edges[w], v); });
-    in_edges[v] = out_edges[u];
-    visit(in_edges[v], [&](size_t w) { set(out_edges[w], v); });
-    visit(in_edges[u], [&](size_t w) { set(out_edges[w], u); });
-    out_edges[u].fill(0ull);
-    set(out_edges[u], v);
-}
-
-void graph::deactive_single_in(size_t u) {
-    assert(u < N * 64 && test(active, u) && popcount(in_edges[u]) == 1);
-    deactive_vertex(u);
-    size_t v = first(in_edges[u]);
-    log.push_back({action::deactivate_single_in, u, v, 0});
-    in_edges[u] = out_edges[v]; // backup out(v)
-    visit(out_edges[u], [&](size_t w) {
-        set(in_edges[w], v);
-        set(out_edges[v], w);
-    });
-}
-
-void graph::undo_deactive_single_in(size_t u, size_t v) {
-    assert(u < N * 64 && !test(active, u));
-    visit(out_edges[v], [&](size_t w) { reset(in_edges[w], v); });
-    out_edges[v] = in_edges[u];
-    visit(out_edges[v], [&](size_t w) { set(in_edges[w], v); });
-    visit(out_edges[u], [&](size_t w) { set(in_edges[w], u); });
-    in_edges[u].fill(0ull);
-    set(in_edges[u], v);
-}
-
 void graph::fold_neighborhood(size_t u) {
     assert(u < N * 64 && popcount(out(u)) == 2 && out(u) == in(u));
     size_t v[2];
     visit(out_edges[u], [&, i = 0](size_t w) mutable { v[i++] = w; });
-    deactive_vertex(v[0]);
-    deactive_vertex(v[1]);
-    log.push_back({action::fold_neighborhood, u, v[0], v[1]});
+    remove_vertex(v[0]);
+    remove_vertex(v[1]);
+    log.push_back({action::fold_neighborhood, u, v[0], v[1], 0});
     visit(out_edges[v[0]] | out_edges[v[1]], [&](size_t w) {
         if (w != u && w != v[0] && w != v[1]) {
             set(out_edges[u], w);
@@ -107,6 +78,29 @@ void graph::undo_fold_neighborhood(size_t u, size_t v1, size_t v2) {
             reset(out_edges[w], u);
         }
     });
+}
+
+void graph::fold_two_one(size_t u, size_t v1, size_t v2, size_t w) {
+    assert(u < N * 64 && popcount(out(u)) == 3 && out(u) == in(u) && test(out(v1), v2) && test(out(v2), v1));
+    remove_vertex(u);
+    remove_vertex(w);
+    visit(out(w), [&](size_t x) {
+        if (x != v1 && x != v2 && x != u) {
+            add_edge(v1, x);
+            add_edge(v2, x);
+        }
+    });
+    visit(in(w), [&](size_t x) {
+        if (x != v1 && x != v2 && x != u) {
+            add_edge(x, v1);
+            add_edge(x, v2);
+        }
+    });
+    log.push_back({action::fold_two_one, u, v1, v2, w});
+}
+
+void graph::undo_fold_two_one(size_t u, size_t v1, size_t v2, size_t w) {
+    
 }
 
 size_t graph::degree(size_t u) const {
@@ -142,20 +136,17 @@ size_t graph::get_timestamp() const {
 
 void graph::unfold_graph(size_t time, bitvector<N> &fvs) {
     while (log.size() > time) {
-        auto [t, u, v1, v2] = log.back();
+        auto [t, u, v1, v2, w] = log.back();
         log.pop_back();
         switch (t) {
-        case action::deactivate_edge:
-            undo_deactive_edge(u, v1);
+        case action::add_edge:
+            undo_add_edge(u, v1);
             break;
-        case action::deactivate_vertex:
-            undo_deactive_vertex(u);
+        case action::remove_edge:
+            undo_remove_edge(u, v1);
             break;
-        case action::deactivate_single_in:
-            undo_deactive_single_in(u, v1);
-            break;
-        case action::deactivate_single_out:
-            undo_deactive_single_out(u, v1);
+        case action::remove_vertex:
+            undo_remove_vertex(u);
             break;
         case action::fold_neighborhood:
             if (test(fvs, u)) {
@@ -166,6 +157,14 @@ void graph::unfold_graph(size_t time, bitvector<N> &fvs) {
                 set(fvs, u);
             }
             undo_fold_neighborhood(u, v1, v2);
+            break;
+        case action::fold_two_one:
+            if (test(fvs, v1) && test(fvs, v2)) {
+                set(fvs, w);
+            } else {
+                set(fvs, u);
+            }
+            undo_fold_two_one(u, v1, v2, w);
             break;
 
         default:

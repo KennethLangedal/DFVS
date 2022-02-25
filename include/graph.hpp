@@ -5,14 +5,14 @@
 
 #include "bitvector.hpp"
 
-constexpr size_t N = 512;
+constexpr size_t N = 128;
 
 enum class action {
-    deactivate_edge,
-    deactivate_vertex,
-    deactivate_single_out,
-    deactivate_single_in,
-    fold_neighborhood
+    add_edge,
+    remove_edge,
+    remove_vertex,
+    fold_neighborhood,
+    fold_two_one
 };
 
 class graph {
@@ -20,20 +20,20 @@ private:
     std::vector<bitvector<N>> out_edges, in_edges;
     bitvector<N> active;
 
-    std::vector<std::tuple<action, size_t, size_t, size_t>> log;
+    std::vector<std::tuple<action, size_t, size_t, size_t, size_t>> log;
 
-    void undo_deactive_edge(size_t u, size_t v);
-    void undo_deactive_vertex(size_t u);
-    void undo_deactive_single_out(size_t u, size_t v);
-    void undo_deactive_single_in(size_t u, size_t v);
+    void undo_add_edge(size_t u, size_t v);
+    void undo_remove_edge(size_t u, size_t v);
+    void undo_remove_vertex(size_t u);
     void undo_fold_neighborhood(size_t u, size_t v1, size_t v2);
+    void undo_fold_two_one(size_t u, size_t v1, size_t v2, size_t w);
 
 public:
-    void deactive_edge(size_t u, size_t v);
-    void deactive_vertex(size_t u);
-    void deactive_single_out(size_t u);
-    void deactive_single_in(size_t u);
+    void add_edge(size_t u, size_t v);
+    void remove_edge(size_t u, size_t v);
+    void remove_vertex(size_t u);
     void fold_neighborhood(size_t u);
+    void fold_two_one(size_t u, size_t v1, size_t v2, size_t w);
 
     size_t degree(size_t u) const;
     size_t in_degree(size_t u) const;

@@ -6,7 +6,7 @@ solved_total=0
 for file in $(find data/exact/ -type f | sort); do
     echo -n $file $(head -n 1 $file | awk '{ print $1 }')" "
     n_left=$(./build/dfvs < $file)
-    if [ "$n_left" = "Too Large" ] || [ "$n_left" = "Max search depht exceeded" ] || [ "$n_left" = "Failed to find branch" ]
+    if [ "$n_left" = "Too Large" ]
     then
         echo $n_left
         continue
