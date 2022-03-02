@@ -109,6 +109,15 @@ size_t intersection_size(const bitvector<N> &lhs, const bitvector<N> &rhs) {
 }
 
 template <size_t N>
+bool is_subset(const bitvector<N> &lhs, const bitvector<N> &rhs) {
+    bool res = true;
+    for (size_t i = 0; i < N; ++i) {
+        res &= (lhs[i] & ~rhs[i]) == 0;
+    }
+    return res;
+}
+
+template <size_t N>
 size_t popcount(const bitvector<N> &v) {
     size_t count = 0;
     for (size_t i = 0; i < N; ++i) {

@@ -42,7 +42,7 @@ int main(int, char **) {
 //         });
 //     } else if (n < 220) {
 //         ofstream fs("scripts/plot_data");
-//         g.print_edgelist(fs);
+//         g.print_edgelist(fs, g.active_vertices());
 //     }
 
 //     return 0;

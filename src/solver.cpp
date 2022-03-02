@@ -25,12 +25,18 @@ bitvector<N> solve(graph &g, const bitvector<N> &nodes, graph_search &gs, size_t
         g.unfold_graph(t0, fvs);
         return fvs;
     }
-    if (d > 20) {
-        std::cout << popcount(g.active_vertices()) << std::endl;
-        if (popcount(g.active_vertices()) < 200) {
-            std::ofstream fs("scripts/plot_data");
-            g.print_edgelist(fs);
-        }
+    // if (d > 20) {
+    //     std::cout << popcount(g.active_vertices()) << std::endl;
+    //     if (popcount(g.active_vertices()) < 200) {
+    //         std::ofstream fs("scripts/plot_data");
+    //         g.print_edgelist(fs, g.active_vertices());
+    //     }
+    //     exit(0);
+    // }
+    if (popcount(remaining) < 10) {
+        std::cout << popcount(remaining) << std::endl;
+        std::ofstream fs("scripts/plot_data");
+        g.print_edgelist(fs, remaining);
         exit(0);
     }
     // for each CC
@@ -40,17 +46,18 @@ bitvector<N> solve(graph &g, const bitvector<N> &nodes, graph_search &gs, size_t
         }
         size_t u = find_dense_branch_node(g, CC);
         size_t t1 = g.get_timestamp();
-        // include u
-        bitvector<N> fvs_inc_u{};
-        add_to_fvs(g, fvs_inc_u, gs, u);
-        fvs_inc_u |= solve(g, CC, gs, d + 1);
-        g.unfold_graph(t1, fvs_inc_u);
 
         // exclude u
         bitvector<N> fvs_ex_u{};
         exclude_from_fvs(g, fvs_ex_u, gs, u);
         fvs_ex_u |= solve(g, CC, gs, d + 1);
         g.unfold_graph(t1, fvs_ex_u);
+
+        // include u
+        bitvector<N> fvs_inc_u{};
+        add_to_fvs(g, fvs_inc_u, gs, u);
+        fvs_inc_u |= solve(g, CC, gs, d + 1);
+        g.unfold_graph(t1, fvs_inc_u);
 
         if (popcount(fvs_inc_u) < popcount(fvs_ex_u)) {
             fvs |= fvs_inc_u;
