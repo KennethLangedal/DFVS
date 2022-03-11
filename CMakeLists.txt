@@ -9,7 +9,7 @@ include_directories(include/)
 include(CTest)
 enable_testing()
 
-add_executable(dfvs main.cpp src/graph.cpp src/reductions.cpp src/solver.cpp)
+add_executable(dfvs main.cpp src/bitvector.cpp src/graph.cpp src/reductions.cpp src/solver.cpp)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

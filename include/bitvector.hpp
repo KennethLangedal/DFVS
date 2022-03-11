@@ -1,127 +1,62 @@
 #pragma once
-#include <array>
-#include <cassert>
 #include <cstdint>
-#include <functional>
+#include <vector>
 
-template <size_t N>
-using bitvector = std::array<uint64_t, N>;
+class bitvector_iterator {
+private:
+    std::vector<uint64_t>::const_iterator _it;
+    uint64_t _t, _i, _N;
 
-template <size_t N>
-void visit(const bitvector<N> &v, std::function<void(size_t)> &&f) {
-    uint64_t t, r;
-    for (size_t i = 0; i < N; ++i) {
-        t = v[i];
-        while (t != 0) {
-            f(i * 64 + __builtin_ctzll(t));
-            t ^= t & -t;
-        }
-    }
-}
+    void _advance();
 
-template <size_t N>
-size_t first(const bitvector<N> &v) {
-    for (size_t i = 0; i < N; ++i) {
-        if (v[i] != 0) {
-            return i * 64 + __builtin_ctzll(v[i]);
-        }
-    }
-    return 0;
-}
+public:
+    bitvector_iterator(std::vector<uint64_t>::const_iterator it, size_t N, bool start);
 
-template <size_t N>
-void set(bitvector<N> &v, size_t i) {
-    assert(i < 64 * N);
-    v[i / 64] |= 1ull << (i & 63);
-}
+    size_t operator*() const;
 
-template <size_t N>
-void reset(bitvector<N> &v, size_t i) {
-    assert(i < 64 * N);
-    v[i / 64] &= ~(1ull << (i & 63));
-}
+    bitvector_iterator &operator++();
+    bitvector_iterator operator++(int);
 
-template <size_t N>
-bool test(const bitvector<N> &v, size_t i) {
-    assert(i < 64 * N);
-    return (v[i / 64] & (1ull << (i & 63))) > 0;
-}
+    bool operator==(const bitvector_iterator &v);
+    bool operator!=(const bitvector_iterator &v);
+};
 
-template <size_t N>
-bool operator==(const bitvector<N> &lhs, const bitvector<N> &rhs) {
-    for (size_t i = 0; i < N; ++i) {
-        if (lhs[i] != rhs[i])
-            return false;
-    }
-    return true;
-}
+class bitvector {
+private:
+    std::vector<uint64_t> _data;
+    size_t _N;
 
-template <size_t N>
-bitvector<N> &operator|=(bitvector<N> &lhs, const bitvector<N> &rhs) {
-    for (size_t i = 0; i < N; ++i) {
-        lhs[i] |= rhs[i];
-    }
-    return lhs;
-}
+    mutable size_t _count;
+    mutable bool _changed;
 
-template <size_t N>
-bitvector<N> &operator&=(bitvector<N> &lhs, const bitvector<N> &rhs) {
-    for (size_t i = 0; i < N; ++i) {
-        lhs[i] &= rhs[i];
-    }
-    return lhs;
-}
+public:
+    bitvector() = default;
+    bitvector(size_t N);
 
-template <size_t N>
-bitvector<N> operator|(const bitvector<N> &lhs, const bitvector<N> &rhs) {
-    bitvector<N> res;
-    for (size_t i = 0; i < N; ++i) {
-        res[i] = lhs[i] | rhs[i];
-    }
-    return res;
-}
+    size_t popcount() const;
+    size_t intersection_size(const bitvector &v) const;
 
-template <size_t N>
-bitvector<N> operator&(const bitvector<N> &lhs, const bitvector<N> &rhs) {
-    bitvector<N> res;
-    for (size_t i = 0; i < N; ++i) {
-        res[i] = lhs[i] & rhs[i];
-    }
-    return res;
-}
+    bool get(size_t i) const;
 
-template <size_t N>
-bitvector<N> operator~(const bitvector<N> &rhs) {
-    bitvector<N> res;
-    for (size_t i = 0; i < N; ++i) {
-        res[i] = ~rhs[i];
-    }
-    return res;
-}
+    void set(size_t i);
+    void reset(size_t i);
+    void clear();
+    void fill();
 
-template <size_t N>
-size_t intersection_size(const bitvector<N> &lhs, const bitvector<N> &rhs) {
-    size_t count = 0;
-    for (size_t i = 0; i < N; ++i) {
-        count += __builtin_popcountll(lhs[i] & rhs[i]);
-    }
-    return count;
-}
+    bool subset_eq(const bitvector &v) const;
 
-template <size_t N>
-bool is_subset(const bitvector<N> &lhs, const bitvector<N> &rhs) {
-    bool res = true;
-    for (size_t i = 0; i < N; ++i) {
-        res &= (lhs[i] & ~rhs[i]) == 0;
-    }
-    return res;
-}
+    bool operator==(const bitvector &v) const;
+    bool operator!=(const bitvector &v) const;
 
-template <size_t N>
-size_t popcount(const bitvector<N> &v) {
-    size_t count = 0;
-    for (size_t i = 0; i < N; ++i) {
-        count += __builtin_popcountll(v[i]);
-    }
-    return count;
-}
+    bitvector &operator&=(const bitvector &v);
+    bitvector &operator|=(const bitvector &v);
+    bitvector &operator^=(const bitvector &v);
+
+    bitvector &set_and(const bitvector &a, const bitvector &b);
+    bitvector &set_or(const bitvector &a, const bitvector &b);
+    bitvector &set_xor(const bitvector &a, const bitvector &b);
+    bitvector &set_and_not(const bitvector &a, const bitvector &b);
+
+    bitvector_iterator begin() const;
+    bitvector_iterator end() const;
+};

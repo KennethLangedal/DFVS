@@ -1,162 +1,173 @@
 #include "graph.hpp"
+#include <cassert>
 
 void graph::add_edge(size_t u, size_t v) {
-    assert(u < N * 64 && v < N * 64 && test(active, u) && test(active, v));
-    if (test(out(u), v) || test(in(v), u))
+    assert(u < _N && v < _N && _active.get(u) && _active.get(v));
+    if (_out_edges[u].get(v) || _in_edges[v].get(u))
         return;
-    log.push_back({action::add_edge, u, v, 0, 0, 0});
-    set(out_edges[u], v);
-    set(in_edges[v], u);
+    _log.push_back({action::add_edge, u, v, 0, 0, 0});
+    _out_edges[u].set(v);
+    _in_edges[v].set(u);
 }
 
-void graph::undo_add_edge(size_t u, size_t v) {
-    assert(u < N * 64 && v < N * 64 && test(active, u) && test(active, v) && test(out(u), v) && test(in(v), u));
-    reset(out_edges[u], v);
-    reset(in_edges[v], u);
+void graph::_undo_add_edge(size_t u, size_t v) {
+    assert(u < _N && v < _N && _active.get(u) && _active.get(v) && _out_edges[u].get(v) && _in_edges[v].get(u));
+    _out_edges[u].reset(v);
+    _in_edges[v].reset(u);
 }
 
 void graph::remove_edge(size_t u, size_t v) {
-    assert(u < N * 64 && v < N * 64 && test(active, u) && test(active, v) && test(out(u), v) && test(in(v), u));
-    log.push_back({action::remove_edge, u, v, 0, 0, 0});
-    reset(out_edges[u], v);
-    reset(in_edges[v], u);
+    assert(u < _N && v < _N && _active.get(u) && _active.get(v) && _out_edges[u].get(v) && _in_edges[v].get(u));
+    _log.push_back({action::remove_edge, u, v, 0, 0, 0});
+    _out_edges[u].reset(v);
+    _in_edges[v].reset(u);
 }
 
-void graph::undo_remove_edge(size_t u, size_t v) {
-    assert(u < N * 64 && v < N * 64 && test(active, u) && test(active, v) && !test(out(u), v) && !test(in(v), u));
-    set(out_edges[u], v);
-    set(in_edges[v], u);
+void graph::_undo_remove_edge(size_t u, size_t v) {
+    assert(u < _N && v < _N && _active.get(u) && _active.get(v) && !_out_edges[u].get(v) && !_in_edges[v].get(u));
+    _out_edges[u].set(v);
+    _in_edges[v].set(u);
 }
 
 void graph::remove_vertex(size_t u) {
-    assert(u < N * 64 && test(active, u));
-    log.push_back({action::remove_vertex, u, 0, 0, 0, 0});
-    reset(active, u);
-    visit(out_edges[u], [&](size_t v) { reset(in_edges[v], u); });
-    visit(in_edges[u], [&](size_t v) { reset(out_edges[v], u); });
+    assert(u < _N && _active.get(u));
+    _log.push_back({action::remove_vertex, u, 0, 0, 0, 0});
+    _active.reset(u);
+    for (size_t v : _out_edges[u])
+        _in_edges[v].reset(u);
+    for (size_t v : _in_edges[u])
+        _out_edges[v].reset(u);
 }
 
-void graph::undo_remove_vertex(size_t u) {
-    assert(u < N * 64 && !test(active, u));
-    set(active, u);
-    visit(out_edges[u], [&](size_t v) { set(in_edges[v], u); });
-    visit(in_edges[u], [&](size_t v) { set(out_edges[v], u); });
+void graph::_undo_remove_vertex(size_t u) {
+    assert(u < _N && !_active.get(u));
+    _active.set(u);
+    for (size_t v : _out_edges[u])
+        _in_edges[v].set(u);
+    for (size_t v : _in_edges[u])
+        _out_edges[v].set(u);
 }
 
-void graph::fold_neighborhood(size_t u) {
-    assert(u < N * 64 && popcount(out(u)) == 2 && out(u) == in(u));
-    size_t v[2];
-    visit(out_edges[u], [&, i = 0](size_t w) mutable { v[i++] = w; });
-    visit(out_edges[v[0]] | out_edges[v[1]], [&](size_t w) {
-        if (w != u && w != v[0] && w != v[1])
-            add_edge(u, w);
-    });
-    visit(in_edges[v[0]] | in_edges[v[1]], [&](size_t w) {
-        if (w != u && w != v[0] && w != v[1])
-            add_edge(w, u);
-    });
-    remove_vertex(v[0]);
-    remove_vertex(v[1]);
-    log.push_back({action::fold_neighborhood, u, v[0], v[1], 0, 0});
-}
+void graph::fold_clique_and_one(size_t u, size_t v) {
+    assert(u < _N && (_out_edges[u].popcount() == 2 || _in_edges[u].popcount() == 2));
 
-void graph::fold_two_one(size_t u, size_t v1, size_t v2, size_t w) {
-    assert(u < N * 64 && popcount(out(u)) == 3 && out(u) == in(u) && test(out(v1), v2) && test(out(v2), v1));
-    visit(out_edges[w], [&](size_t x) {
-        add_edge(v1, x);
-        add_edge(v2, x);
-    });
-    visit(in_edges[w], [&](size_t x) {
-        add_edge(x, v1);
-        add_edge(x, v2);
-    });
+    for (size_t w1 : _out_edges[u]) {
+        if (w1 == v)
+            continue;
+        for (size_t w2 : _out_edges[v]) {
+            if (w2 == w1)
+                continue;
+            add_edge(w1, w2);
+        }
+        for (size_t w2 : _in_edges[v]) {
+            if (w2 == w1)
+                continue;
+            add_edge(w2, w1);
+        }
+    }
+
     remove_vertex(u);
-    remove_vertex(w);
-    log.push_back({action::fold_two_one, u, v1, v2, w, 0});
+    remove_vertex(v);
+    _log.push_back({action::fold_clique_and_one, u, v, 0, 0, 0});
 }
 
 void graph::fold_square(size_t u, size_t v1, size_t v2, size_t w1, size_t w2) {
-    assert(u < N * 64 && popcount(out(u)) == 4 && out(u) == in(u));
-    visit(out_edges[v2], [&](size_t x) { if (x != v1) {add_edge(v1, x);} });
-    visit(in_edges[v2], [&](size_t x) { if (x != v1) {add_edge(x, v1);} });
-    visit(out_edges[w2], [&](size_t x) { if (x != w1) {add_edge(w1, x);} });
-    visit(in_edges[w2], [&](size_t x) { if (x != w1) {add_edge(x, w1);} });
+    assert(u < _N && _out_edges[u].popcount() == 4 && _out_edges[u] == _in_edges[u]);
+    for (size_t x : _out_edges[v2]) {
+        if (x != v1)
+            add_edge(v1, x);
+    }
+    for (size_t x : _in_edges[v2]) {
+        if (x != v1)
+            add_edge(x, v1);
+    }
+    for (size_t x : _out_edges[w2]) {
+        if (x != w1)
+            add_edge(w1, x);
+    }
+    for (size_t x : _in_edges[w2]) {
+        if (x != w1)
+            add_edge(x, w1);
+    }
     remove_vertex(u);
     remove_vertex(v2);
     remove_vertex(w2);
-    log.push_back({action::fold_square, u, v1, v2, w1, w2});
+    _log.push_back({action::fold_square, u, v1, v2, w1, w2});
 }
 
-size_t graph::degree(size_t u) const {
-    assert(u < N * 64);
-    return popcount(out_edges[u]);
+size_t graph::out_degree(size_t u) const {
+    assert(u < _N);
+    return _out_edges[u].popcount();
 }
 
 size_t graph::in_degree(size_t u) const {
-    assert(u < N * 64);
-    return popcount(in_edges[u]);
+    assert(u < _N);
+    return _in_edges[u].popcount();
 }
 
 bool graph::self_loop(size_t u) const {
-    assert(u < N * 64);
-    return test(out_edges[u], u);
+    assert(u < _N);
+    return _out_edges[u].get(u);
 }
 
-const bitvector<N> &graph::active_vertices() const { return active; }
-
-const bitvector<N> &graph::out(size_t u) const {
-    assert(u < N * 64);
-    return out_edges[u];
+const bitvector &graph::active_vertices() const {
+    return _active;
 }
 
-const bitvector<N> &graph::in(size_t u) const {
-    assert(u < N * 64);
-    return in_edges[u];
+const bitvector &graph::out(size_t u) const {
+    assert(u < _N);
+    return _out_edges[u];
+}
+
+const bitvector &graph::in(size_t u) const {
+    assert(u < _N);
+    return _in_edges[u];
 }
 
 size_t graph::get_timestamp() const {
-    return log.size();
+    return _log.size();
 }
 
-void graph::unfold_graph(size_t time, bitvector<N> &fvs) {
-    while (log.size() > time) {
-        auto [t, u, v1, v2, w1, w2] = log.back();
-        log.pop_back();
+size_t graph::size() const {
+    return _N;
+}
+
+void graph::unfold_graph(size_t time, bitvector &fvs) {
+    while (_log.size() > time) {
+        auto [t, u, v1, v2, w1, w2] = _log.back();
+        bool all;
+        _log.pop_back();
         switch (t) {
         case action::add_edge:
-            undo_add_edge(u, v1);
+            _undo_add_edge(u, v1);
             break;
         case action::remove_edge:
-            undo_remove_edge(u, v1);
+            _undo_remove_edge(u, v1);
             break;
         case action::remove_vertex:
-            undo_remove_vertex(u);
+            _undo_remove_vertex(u);
             break;
-        case action::fold_neighborhood:
-            if (test(fvs, u)) {
-                reset(fvs, u);
-                set(fvs, v1);
-                set(fvs, v2);
-            } else {
-                set(fvs, u);
+        case action::fold_clique_and_one:
+            all = true;
+            for (size_t x : _out_edges[u]) {
+                if (x != v1 && !fvs.get(x))
+                    all = false;
             }
-            break;
-        case action::fold_two_one:
-            if (test(fvs, v1) && test(fvs, v2)) {
-                set(fvs, w1);
+            if (all) {
+                fvs.set(v1);
             } else {
-                set(fvs, u);
+                fvs.set(u);
             }
             break;
         case action::fold_square:
-            if (test(fvs, v1)) {
-                set(fvs, v2);
+            if (fvs.get(v1)) {
+                fvs.set(v2);
             }
-            if (test(fvs, w1)) {
-                set(fvs, w2);
+            if (fvs.get(w1)) {
+                fvs.set(w2);
             }
-            if (!(test(fvs, v1) && test(fvs, w1))) {
-                set(fvs, u);
+            if (!(fvs.get(v1) && fvs.get(w1))) {
+                fvs.set(u);
             }
             break;
 
@@ -166,10 +177,12 @@ void graph::unfold_graph(size_t time, bitvector<N> &fvs) {
     }
 }
 
-void graph::print_edgelist(std::ostream &os, const bitvector<N> vertices) const {
-    visit(vertices, [&](size_t u) {
-        visit(out_edges[u], [&](size_t v) { os << u << " " << v << std::endl; });
-    });
+void graph::print_edgelist(std::ostream &os, const bitvector vertices) const {
+    for (size_t u : vertices) {
+        for (size_t v : _out_edges[u]) {
+            os << u << " " << v << std::endl;
+        }
+    }
 }
 
 std::istream &operator>>(std::istream &is, graph &g) {
@@ -195,24 +208,23 @@ std::istream &operator>>(std::istream &is, graph &g) {
         }
     };
 
-    size_t n, E, tmp, u, v;
-    fscan(n);
+    size_t N, E, tmp, u, v;
+    fscan(N);
     fscan(E);
     fscan(tmp);
-    if (n > N * 64) {
-        std::cout << "Too Large" << std::endl;
-        exit(0);
-    }
-    g.active.fill(~0ull);
-    g.out_edges.resize(N * 64, {});
-    g.in_edges.resize(N * 64, {});
+
+    g._N = N;
+    g._active = bitvector(N);
+    g._active.fill();
+    g._out_edges.resize(N, bitvector(N));
+    g._in_edges.resize(N, bitvector(N));
 
     u = 0;
-    while (u < n) {
+    while (u < N) {
         fscan(v);
         if (v > 0) {
-            set(g.out_edges[u], v - 1);
-            set(g.in_edges[v - 1], u);
+            g._out_edges[u].set(v - 1);
+            g._in_edges[v - 1].set(u);
         }
         if (c == '\n')
             u++;
