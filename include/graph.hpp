@@ -27,6 +27,9 @@ private:
     void _undo_remove_vertex(size_t u);
 
 public:
+    void add_edge_raw(size_t u, size_t v);
+    void remove_edge_raw(size_t u, size_t v);
+
     void add_edge(size_t u, size_t v);
     void remove_edge(size_t u, size_t v);
     void remove_vertex(size_t u);

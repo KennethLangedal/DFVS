@@ -1,7 +1,7 @@
 #pragma once
 #include "graph.hpp"
 
-const size_t num_reductions = 9;
+const size_t num_reductions = 11;
 
 enum class reductions { zero_degree,
                         self_edge,
@@ -10,7 +10,7 @@ enum class reductions { zero_degree,
                         isolated_vertex,
                         dominating_vertex,
                         twin_vertices,
-                        clique_and_one,
+                        clique_and_one_fold,
                         square_fold,
                         specific_pattern,
                         redundant_edge_meta };

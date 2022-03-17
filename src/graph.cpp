@@ -1,6 +1,16 @@
 #include "graph.hpp"
 #include <cassert>
 
+void graph::add_edge_raw(size_t u, size_t v) {
+    _out_edges[u].set(v);
+    _in_edges[v].set(u);
+}
+
+void graph::remove_edge_raw(size_t u, size_t v) {
+    _out_edges[u].reset(v);
+    _in_edges[v].reset(u);
+}
+
 void graph::add_edge(size_t u, size_t v) {
     assert(u < _N && v < _N && _active.get(u) && _active.get(v));
     if (_out_edges[u].get(v) || _in_edges[v].get(u))
@@ -49,7 +59,7 @@ void graph::_undo_remove_vertex(size_t u) {
 }
 
 void graph::fold_clique_and_one(size_t u, size_t v) {
-    assert(u < _N && (_out_edges[u].popcount() == 2 || _in_edges[u].popcount() == 2));
+    assert(u < _N && _active.get(u));
 
     for (size_t w1 : _out_edges[u]) {
         if (w1 == v)
@@ -154,12 +164,13 @@ void graph::unfold_graph(size_t time, bitvector &fvs) {
                     all = false;
             }
             if (all) {
+                fvs.reset(u);
                 fvs.set(v1);
-            } else {
-                fvs.set(u);
             }
             break;
         case action::fold_square:
+            fvs.reset(v2);
+            fvs.reset(w2);
             if (fvs.get(v1)) {
                 fvs.set(v2);
             }

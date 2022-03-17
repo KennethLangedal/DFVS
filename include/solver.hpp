@@ -1,7 +1,7 @@
 #pragma once
 #include "reductions.hpp"
 
-bitvector solve(graph &g, const bitvector &nodes, graph_search &gs, size_t d);
+bitvector solve(graph &g, const bitvector &nodes, graph_search &gs, size_t cost, size_t ub, size_t d, size_t &lb_counter);
 
 struct branch_info {
     size_t best_inc = std::numeric_limits<size_t>::max(), best_exc = std::numeric_limits<size_t>::max();
