@@ -9,11 +9,11 @@ enum class reductions { zero_degree,
                         redundant_edges,
                         isolated_vertex,
                         dominating_vertex,
+                        cycle_dominating_vertex,
                         twin_vertices,
                         clique_and_one_fold,
                         square_fold,
-                        specific_pattern,
-                        redundant_edge_meta };
+                        specific_pattern };
 
 struct graph_search {
     std::vector<std::vector<size_t>> search;
@@ -32,3 +32,5 @@ void add_to_fvs(graph &g, bitvector &fvs, graph_search &gs, size_t u);
 void exclude_from_fvs(graph &g, bitvector &fvs, graph_search &gs, size_t u);
 
 void reduce_graph(graph &g, bitvector &fvs, const bitvector &nodes, graph_search &gs, std::vector<bitvector> &SCC);
+
+bool SCC_edge_reduction(graph &g, bitvector &fvs, const bitvector &nodes, graph_search &gs, std::vector<bitvector> &SCC);

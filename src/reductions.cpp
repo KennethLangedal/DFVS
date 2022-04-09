@@ -117,7 +117,7 @@ bool twin_vertices_reduction(graph &g, bitvector &fvs, graph_search &gs, size_t 
         gs.tmp.clear();
         gs.tmp.set(u);
         for (size_t v : g.out(*g.out(u).begin())) {
-            if (v != u && g.out(v) == g.in(v) && g.out(v) == g.in(u))
+            if (v != u && g.out(v) == g.in(v) && g.out(v) == g.out(u))
                 gs.tmp.set(v);
         }
         if (gs.tmp.popcount() >= g.out_degree(u)) {
@@ -160,6 +160,29 @@ bool dominating_vertex_reduction(graph &g, bitvector &fvs, graph_search &gs, siz
             return true;
         }
     }
+    return false;
+}
+
+bool cycle_dominating_vertex(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
+    assert(g.active_vertices().get(u));
+    
+    gs.tmp.set_and_not(g.out(u), g.in(u));
+    if (gs.tmp.popcount() > 0) {
+        for (size_t v : gs.tmp) {
+            gs.tmp1.set_and_not(g.out(v), g.in(v));
+            for (size_t w : gs.tmp1) {
+                if (g.out(w).get(u) && !g.in(w).get(u)) { // length 3 cycle
+                    gs.tmp2.set_and(g.out(u), g.in(u));
+                    if ((gs.tmp2.intersection_size(g.out(v)) == g.out_degree(v) - 1 && gs.tmp2.intersection_size(g.out(w)) == g.out_degree(w) - 1) ||
+                        (gs.tmp2.intersection_size(g.in(v)) == g.in_degree(v) - 1 && gs.tmp2.intersection_size(g.in(w)) == g.in_degree(w) - 1)) {
+                        add_to_fvs(g, fvs, gs, u);
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
     return false;
 }
 
@@ -240,6 +263,9 @@ bool square_fold(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
 
 bool has_cycle(const graph &g, bitvector &visited, size_t u, size_t &length) {
     static bitvector current(g.size()), next(g.size()), tmp(g.size());
+    if (current.size() != g.size()) {
+        current = bitvector(g.size()), next = bitvector(g.size()), tmp = bitvector(g.size());
+    }
     current.set_and_not(g.out(u), g.in(u));
     current.set_and_not(current, visited);
     visited |= current;
@@ -296,6 +322,18 @@ bool specific_pattern(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
         }
     }
 
+    // Single double edge, where the other also connects the same vertices
+
+    if (gs.tmp.popcount() == 1) {
+        size_t v = *gs.tmp.begin();
+        gs.tmp1.set_and_not(g.out(u), g.in(u));
+        gs.tmp2.set_and_not(g.in(u), g.out(u));
+        if (gs.tmp1.subset_eq(g.out(v)) && gs.tmp2.subset_eq(g.in(v))) {
+            exclude_from_fvs(g, fvs, gs, u);
+            return true;
+        }
+    }
+
     // Cycle blocking tests
 
     size_t length;
@@ -315,22 +353,6 @@ bool specific_pattern(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
     return false;
 }
 
-bool redundant_edge_meta(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
-    assert(g.active_vertices().get(u));
-
-    gs.tmp.set_and(g.out(u), g.in(u));
-    if (gs.tmp.popcount() == 0) {
-        for (size_t v : g.in(u)) {
-            if (!g.out(u).subset_eq(g.out(v)))
-                return false;
-        }
-        exclude_from_fvs(g, fvs, gs, u);
-        return true;
-    }
-
-    return false;
-}
-
 bool SCC_edge_reduction(graph &g, bitvector &fvs, const bitvector &nodes, graph_search &gs, std::vector<bitvector> &SCC) {
     gs.DFS_stack.clear();
     gs.L.clear();
@@ -341,7 +363,7 @@ bool SCC_edge_reduction(graph &g, bitvector &fvs, const bitvector &nodes, graph_
         if (gs.DFS_visited.get(u))
             return;
         gs.DFS_visited.set(u);
-        for (size_t v : g.out(u))
+        for (size_t v : g.in(u))
             dfs_visit(v);
         gs.L.push_back(u);
     };
@@ -356,7 +378,7 @@ bool SCC_edge_reduction(graph &g, bitvector &fvs, const bitvector &nodes, graph_
             return;
         CC.set(u);
         gs.SCC_id[u] = root;
-        for (size_t v : g.in(u))
+        for (size_t v : g.out(u))
             assign(v, root, CC);
     };
 
@@ -411,159 +433,6 @@ void exclude_from_fvs(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
     g.remove_vertex(u);
 }
 
-std::vector<size_t> list_cycle(const graph &g, size_t s) {
-    std::vector<size_t> cycle, current, next, prev(g.size(), g.size());
-    current.push_back(s);
-
-    auto construct_res = [&]() {
-        size_t u = prev[s];
-        while (u != s) {
-            cycle.push_back(u);
-            u = prev[u];
-        }
-        cycle.push_back(s);
-        std::reverse(std::begin(cycle), std::end(cycle));
-    };
-
-    while (!current.empty()) {
-        for (size_t u : current) {
-            for (size_t v : g.out(u)) {
-                if (v == s) {
-                    prev[s] = u;
-                    construct_res();
-                    return cycle;
-                }
-                if (prev[v] == g.size()) {
-                    prev[v] = u;
-                    next.push_back(v);
-                }
-            }
-        }
-        std::swap(next, current);
-        next.clear();
-    }
-    return cycle;
-}
-
-void redundant_req(graph &_g, graph_search &gs) {
-    size_t u = _g.size(), cycle_length, best_cycle_length;
-    for (size_t v : _g.active_vertices()) {
-        gs.tmp.set_and(_g.out(v), _g.in(v));
-        if (gs.tmp.popcount() > 0) {
-            u = v;
-            best_cycle_length = 0;
-            break;
-        }
-        gs.tmp2.clear();
-        if (has_cycle(_g, gs.tmp2, v, cycle_length) && (u == _g.size() || cycle_length < best_cycle_length)) {
-            u = v;
-            best_cycle_length = cycle_length;
-        }
-    }
-
-    // basecase, no cycles
-    if (u == _g.size()) {
-        for (size_t v : _g.active_vertices()) {
-            for (size_t w : _g.out(v)) {
-                _g.remove_edge_raw(v, w);
-            }
-        }
-        return;
-    }
-
-    std::vector<size_t> cycle = list_cycle(_g, u);
-
-    std::vector<bitvector> in_edges(cycle.size(), bitvector(_g.size())), out_edges(cycle.size(), bitvector(_g.size()));
-
-    std::vector<std::vector<std::vector<std::pair<size_t, size_t>>>> in_list(cycle.size()), out_list(cycle.size());
-
-    for (size_t i = 0; i < cycle.size(); ++i) {
-        in_edges[i].set_and_not(_g.in(cycle[i]), _g.out(cycle[i]));
-        out_edges[i].set_and_not(_g.out(cycle[i]), _g.in(cycle[i]));
-        in_list[i].resize(in_edges[i].popcount());
-        out_list[i].resize(out_edges[i].popcount());
-    }
-
-    for (size_t i = 0; i < cycle.size(); ++i) {
-        for (size_t j = 0; j < cycle.size() - 1; ++j) {
-            size_t k1 = 0;
-            for (size_t v : in_edges[i]) {
-                size_t k2 = 0;
-                for (size_t w : out_edges[(i + j) % cycle.size()]) {
-                    if (!_g.out(v).get(w)) {
-                        _g.add_edge_raw(v, w);
-                        in_list[i][k1].push_back({v, w});
-                        out_list[(i + j) % cycle.size()][k2].push_back({v, w});
-                    }
-                    ++k2;
-                }
-                ++k1;
-            }
-        }
-    }
-
-    size_t t = _g.get_timestamp();
-    _g.remove_vertex(u);
-
-    redundant_req(_g, gs);
-
-    _g.unfold_graph(t, gs.tmp);
-
-    for (size_t i = 0; i < cycle.size(); ++i) {
-        size_t k1 = 0;
-        for (size_t v : in_edges[i]) {
-            bool redundant = true;
-            for (auto [u1, v1] : in_list[i][k1]) {
-                if (_g.out(u1).get(v1)) {
-                    redundant = false;
-                    break;
-                }
-            }
-            if (redundant) {
-                _g.remove_edge_raw(u, v);
-            }
-            ++k1;
-        }
-    }
-
-    for (size_t i = 0; i < cycle.size(); ++i) {
-        size_t k1 = 0;
-        for (size_t v : out_edges[i]) {
-            bool redundant = true;
-            for (auto [u1, v1] : out_list[i][k1]) {
-                if (_g.out(u1).get(v1)) {
-                    redundant = false;
-                }
-                _g.remove_edge_raw(u1, v1);
-            }
-            if (redundant) {
-                _g.remove_edge_raw(u, v);
-            }
-            ++k1;
-        }
-    }
-}
-
-bool remove_redundant_edges(graph &g, graph_search &gs) {
-    graph _g = g;
-
-    redundant_req(_g, gs);
-
-    bool res = false;
-    for (size_t u : g.active_vertices()) {
-        for (size_t v : g.out(u)) {
-            if (!_g.out(u).get(v)) {
-                g.remove_edge(u, v);
-                push_search(gs, u);
-                push_search(gs, v);
-                res = true;
-            }
-        }
-    }
-
-    return res;
-}
-
 void reduce_graph(graph &g, bitvector &fvs, const bitvector &nodes, graph_search &gs, std::vector<bitvector> &SCC) {
     size_t rule = 0;
     while (rule < num_reductions) {
@@ -593,6 +462,9 @@ void reduce_graph(graph &g, bitvector &fvs, const bitvector &nodes, graph_search
             case reductions::dominating_vertex:
                 found = dominating_vertex_reduction(g, fvs, gs, u);
                 break;
+            case reductions::cycle_dominating_vertex:
+                found = cycle_dominating_vertex(g, fvs, gs, u);
+                break;
             case reductions::twin_vertices:
                 found = twin_vertices_reduction(g, fvs, gs, u);
                 break;
@@ -605,9 +477,6 @@ void reduce_graph(graph &g, bitvector &fvs, const bitvector &nodes, graph_search
             case reductions::specific_pattern:
                 found = specific_pattern(g, fvs, gs, u);
                 break;
-            case reductions::redundant_edge_meta:
-                found = redundant_edge_meta(g, fvs, gs, u);
-                break;
             default:
                 break;
             }
@@ -617,8 +486,9 @@ void reduce_graph(graph &g, bitvector &fvs, const bitvector &nodes, graph_search
 
         if (rule == num_reductions) {
             gs.tmp2.set_and(nodes, g.active_vertices());
-            if (SCC_edge_reduction(g, fvs, gs.tmp2, gs, SCC) || remove_redundant_edges(g, gs))
+            if (SCC_edge_reduction(g, fvs, gs.tmp2, gs, SCC)) {
                 rule = 0;
+            }
         }
     }
 }

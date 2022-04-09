@@ -34,6 +34,7 @@ public:
     bitvector(size_t N);
 
     size_t popcount() const;
+    size_t size() const;
     size_t intersection_size(const bitvector &v) const;
 
     bool get(size_t i) const;

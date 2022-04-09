@@ -209,6 +209,14 @@ std::istream &operator>>(std::istream &is, graph &g) {
         c = buffer[buffer_i++];
     };
 
+    auto peek = [&](char &c) {
+        if (buffer_i == N_BUFFER) {
+            is.read(buffer.data(), N_BUFFER);
+            buffer_i = 0;
+        }
+        c = buffer[buffer_i];
+    };
+
     char c;
     auto fscan = [&](auto &v) {
         get(c);
@@ -218,6 +226,13 @@ std::istream &operator>>(std::istream &is, graph &g) {
             get(c);
         }
     };
+
+    peek(c);
+    while (c == '%') {
+        while (c != '\n')
+            get(c);
+        peek(c);
+    }
 
     size_t N, E, tmp, u, v;
     fscan(N);
@@ -237,8 +252,15 @@ std::istream &operator>>(std::istream &is, graph &g) {
             g._out_edges[u].set(v - 1);
             g._in_edges[v - 1].set(u);
         }
-        if (c == '\n')
+        if (c == '\n') {
             u++;
+            peek(c);
+            while (c == '%') {
+                while (c != '\n')
+                    get(c);
+                peek(c);
+            }
+        }
     }
     return is;
 }

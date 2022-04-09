@@ -1,63 +1,68 @@
 #include <fstream>
 #include <iostream>
 
+// #define HEURISTIC
+#define EXACT
+
+#include "local_search.hpp"
 #include "solver.hpp"
 
 using namespace std;
 
-// int main(int, char **) {
-//     graph g;
-//     cin >> g;
+#ifdef EXACT
 
-//     graph_search gs;
+int main(int, char **) {
+    graph g;
+    cin >> g;
 
-//     auto res = analysis(g, gs);
-//     cout << res.best_inc << "," << res.avg_inc << "," << res.worst_inc << endl;
-//     cout << res.best_exc << "," << res.avg_exc << "," << res.worst_exc << endl;
+    auto fvs = solve(g);
 
-//     return 0;
-// }
+    cout << fvs.popcount() << endl;
 
-// int main(int, char **) {
-//     graph g;
-//     cin >> g;
+    // for (size_t v : fvs) {
+    //     cout << v + 1 << endl;
+    // }
 
-//     size_t lb_counter = 0;
-//     graph_search gs(g.size());
-//     bitvector fvs = solve(g, g.active_vertices(), gs, 0, g.size(), 0, lb_counter);
+    return 0;
+}
 
-//     cout << 0 << endl;
+#endif
 
-//     ofstream fs("data/solution/tmp");
-//     for (size_t v : fvs) {
-//         fs << v + 1 << endl;
-//     }
-
-//     return 0;
-// }
+#ifdef HEURISTIC
 
 int main(int, char **) {
     graph g;
     cin >> g;
 
     graph_search gs(g.size());
-    bitvector fvs(g.size());
+    bitvector dfvs(g.size());
     vector<bitvector> SCC;
-    reduce_graph(g, fvs, g.active_vertices(), gs, SCC);
+    reduce_graph(g, dfvs, g.active_vertices(), gs, SCC);
 
-    size_t n = g.active_vertices().popcount();
-    cout << n << endl;
+    size_t largest = 0;
 
-    if (n == 0) {
-        g.unfold_graph(0, fvs);
-        ofstream fs("data/solution/tmp");
-        for (size_t v : fvs) {
-            fs << v + 1 << endl;
-        }
-    } else {
-        ofstream fs("scripts/plot_data");
-        g.print_edgelist(fs, g.active_vertices());
+    for (auto &&c : SCC) {
+        largest = max(largest, c.popcount());
     }
 
-    return 0;
+    cout << g.active_vertices().popcount() << " " << SCC.size() << " " << largest << endl;
+
+    ofstream fs("scripts/plot_data");
+    g.print_edgelist(fs, g.active_vertices());
+
+    // cout << g.active_vertices().popcount() << " " << dfvs.popcount() << endl;
+
+    // reducing_peeling(g, dfvs, gs, SCC);
+
+    // cout << g.active_vertices().popcount() << " " << dfvs.popcount() << endl;
+
+    // remove_redundant(g, dfvs);
+
+    // cout << g.active_vertices().popcount() << " " << dfvs.popcount() << endl;
+
+    // two_one_swap(g, dfvs);
+
+    // cout << g.active_vertices().popcount() << " " << dfvs.popcount() << endl;
 }
+
+#endif

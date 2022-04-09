@@ -57,6 +57,10 @@ size_t bitvector::popcount() const {
     return _count;
 }
 
+size_t bitvector::size() const {
+    return _N;
+}
+
 size_t bitvector::intersection_size(const bitvector &v) const {
     assert(_N == v._N);
     size_t res = 0;
