@@ -115,11 +115,6 @@ size_t graph::in_degree(size_t u) const {
     return _in_edges[u].popcount();
 }
 
-bool graph::self_loop(size_t u) const {
-    assert(u < _N);
-    return _out_edges[u].get(u);
-}
-
 const bitvector &graph::active_vertices() const {
     return _active;
 }

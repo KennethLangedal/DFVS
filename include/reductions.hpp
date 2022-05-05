@@ -31,6 +31,8 @@ void add_to_fvs(graph &g, bitvector &fvs, graph_search &gs, size_t u);
 
 void exclude_from_fvs(graph &g, bitvector &fvs, graph_search &gs, size_t u);
 
-void reduce_graph(graph &g, bitvector &fvs, const bitvector &nodes, graph_search &gs, std::vector<bitvector> &SCC);
+void push_search(graph_search &gs, size_t u);
+
+void reduce_graph(graph &g, bitvector &fvs, const bitvector &nodes, graph_search &gs, std::vector<bitvector> &SCC, bool global = false);
 
 bool SCC_edge_reduction(graph &g, bitvector &fvs, const bitvector &nodes, graph_search &gs, std::vector<bitvector> &SCC);

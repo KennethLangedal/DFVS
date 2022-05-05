@@ -37,7 +37,7 @@ bool zero_degree_reduction(graph &g, bitvector &fvs, graph_search &gs, size_t u)
 
 bool self_edge_reduction(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
     assert(g.active_vertices().get(u));
-    if (g.self_loop(u)) {
+    if (g.out(u).get(u)) {
         add_to_fvs(g, fvs, gs, u);
         return true;
     }
@@ -56,11 +56,11 @@ bool one_degree_reduction(graph &g, bitvector &fvs, graph_search &gs, size_t u) 
 bool redundant_edges(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
     assert(g.active_vertices().get(u));
 
-    // Zero out or in (excluding 2-cycles)
+    // Zero in or out (excluding 2-cycles)
 
     gs.tmp.set_and(g.out(u), g.in(u));
-    if (gs.tmp == g.out(u) && gs.tmp != g.in(u)) {
-        gs.tmp.set_and_not(g.in(u), g.out(u));
+    if (gs.tmp == g.out(u) && gs.tmp != g.in(u)) { // if ((g.out(u) - g.in(u)).empty() && !((g.in(u) - g.out(u)).empty()))
+        gs.tmp.set_and_not(g.in(u), g.out(u));     // Make tmp copy for large version, could invalidate iterator
         for (size_t v : gs.tmp) {
             g.remove_edge(v, u);
             push_search(gs, v);
@@ -113,7 +113,8 @@ bool isolated_vertex_reduction(graph &g, bitvector &fvs, graph_search &gs, size_
 
 bool twin_vertices_reduction(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
     assert(g.active_vertices().get(u));
-    if (g.out(u) == g.in(u)) {
+
+    if (g.out(u) == g.in(u) && !g.out(u).get(u)) {
         gs.tmp.clear();
         gs.tmp.set(u);
         for (size_t v : g.out(*g.out(u).begin())) {
@@ -165,14 +166,14 @@ bool dominating_vertex_reduction(graph &g, bitvector &fvs, graph_search &gs, siz
 
 bool cycle_dominating_vertex(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
     assert(g.active_vertices().get(u));
-    
+
     gs.tmp.set_and_not(g.out(u), g.in(u));
+    gs.tmp2.set_and(g.out(u), g.in(u));
     if (gs.tmp.popcount() > 0) {
         for (size_t v : gs.tmp) {
             gs.tmp1.set_and_not(g.out(v), g.in(v));
             for (size_t w : gs.tmp1) {
                 if (g.out(w).get(u) && !g.in(w).get(u)) { // length 3 cycle
-                    gs.tmp2.set_and(g.out(u), g.in(u));
                     if ((gs.tmp2.intersection_size(g.out(v)) == g.out_degree(v) - 1 && gs.tmp2.intersection_size(g.out(w)) == g.out_degree(w) - 1) ||
                         (gs.tmp2.intersection_size(g.in(v)) == g.in_degree(v) - 1 && gs.tmp2.intersection_size(g.in(w)) == g.in_degree(w) - 1)) {
                         add_to_fvs(g, fvs, gs, u);
@@ -188,12 +189,17 @@ bool cycle_dominating_vertex(graph &g, bitvector &fvs, graph_search &gs, size_t 
 
 bool clique_and_one_fold(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
     assert(g.active_vertices().get(u) && g.out_degree(u) >= 2);
+
     if (g.out(u) == g.in(u)) {
         size_t v = g.size();
         if (g.out_degree(u) == 2) {
             v = *g.out(u).begin();
+            if (g.out(v) != g.in(v))
+                return false;
         } else {
             for (size_t w : g.out(u)) {
+                if (g.out(w) != g.in(w))
+                    return false;
                 gs.tmp.set_and(g.out(w), g.in(w));
                 if (gs.tmp.intersection_size(g.out(u)) == 0) {
                     if (v != g.size())
@@ -229,7 +235,7 @@ bool square_fold(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
     if (g.in(u) == g.out(u) && g.out_degree(u) == 4) {
         for (size_t v : g.out(u)) {
             gs.tmp.set_and(g.out(v), g.in(v));
-            if (g.out(u).intersection_size(gs.tmp) != 2)
+            if (g.out(v) != g.in(v) || g.out(u).intersection_size(gs.tmp) != 2)
                 return false;
         }
 
@@ -405,6 +411,49 @@ bool SCC_edge_reduction(graph &g, bitvector &fvs, const bitvector &nodes, graph_
     return res;
 }
 
+bool global_redundant_edge(graph &g, bitvector &fvs, graph_search &gs) {
+    // gs.tmp = path
+    std::function<bool(size_t, size_t, size_t)> dfs = [&](size_t u, size_t v, size_t d) {
+        if (gs.tmp.intersection_size(g.in(v)) > 1)
+            return false;
+        if (g.out(v).get(u)) {
+            return gs.tmp.intersection_size(g.out(v)) == 1;
+        }
+        if (gs.tmp.intersection_size(g.out(v)) > 0) {
+            return false;
+        }
+        if (d > 20)
+            return true;
+        bool res = false;
+        gs.tmp.set(v);
+        bool single = g.out(u).popcount() - g.out(u).intersection_size(g.in(u)) == 1;
+        for (size_t w : g.out(v)) {
+            res |= dfs(u, w, d + (single ? 0 : 1));
+            if (res)
+                break;
+        }
+        gs.tmp.reset(v);
+        return res;
+    };
+
+    gs.tmp.clear();
+
+    bool res = false;
+    for (size_t u : g.active_vertices()) {
+        gs.tmp.set(u);
+        for (size_t v : g.out(u)) {
+            if (!dfs(u, v, 0)) {
+                g.remove_edge(u, v);
+                push_search(gs, u);
+                push_search(gs, v);
+                res = true;
+            }
+        }
+        gs.tmp.reset(u);
+    }
+    return res;
+}
+
 void add_to_fvs(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
     fvs.set(u);
     for (size_t v : g.out(u))
@@ -433,7 +482,7 @@ void exclude_from_fvs(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
     g.remove_vertex(u);
 }
 
-void reduce_graph(graph &g, bitvector &fvs, const bitvector &nodes, graph_search &gs, std::vector<bitvector> &SCC) {
+void reduce_graph(graph &g, bitvector &fvs, const bitvector &nodes, graph_search &gs, std::vector<bitvector> &SCC, bool global) {
     size_t rule = 0;
     while (rule < num_reductions) {
         if (gs.search[rule].empty()) {
@@ -480,13 +529,16 @@ void reduce_graph(graph &g, bitvector &fvs, const bitvector &nodes, graph_search
             default:
                 break;
             }
-            if (found)
+            if (found) {
                 rule = 0;
+            }
         }
 
         if (rule == num_reductions) {
             gs.tmp2.set_and(nodes, g.active_vertices());
             if (SCC_edge_reduction(g, fvs, gs.tmp2, gs, SCC)) {
+                rule = 0;
+            } else if ((global || g.active_vertices().popcount() < 100) && global_redundant_edge(g, fvs, gs)) {
                 rule = 0;
             }
         }

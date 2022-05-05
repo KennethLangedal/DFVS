@@ -38,7 +38,6 @@ public:
 
     size_t out_degree(size_t u) const;
     size_t in_degree(size_t u) const;
-    bool self_loop(size_t u) const;
 
     const bitvector &active_vertices() const;
     const bitvector &out(size_t u) const;

@@ -45,6 +45,27 @@ bool bitvector_iterator::operator!=(const bitvector_iterator &v) {
     return _it != v._it || _t != v._t || _i != v._i || _N != v._N;
 }
 
+bitvector_iterator &bitvector_iterator::advance(size_t dist) {
+    size_t pop;
+    while (_i < _N && dist > 0) {
+        pop = __builtin_popcountll(_t);
+        if (pop <= dist) {
+            _t = 0;
+            ++_i;
+            ++_it;
+            dist -= pop;
+            if (_i < _N)
+                _t = *_it;
+        } else {
+            while (dist > 0) {
+                _t ^= _t & -_t;
+                dist--;
+            }
+        }
+    }
+    return *this;
+}
+
 bitvector::bitvector(size_t N)
     : _data((N + 63) / 64, 0), _N(N), _count(0), _changed(false) {
 }
@@ -180,6 +201,17 @@ bitvector &bitvector::set_xor(const bitvector &a, const bitvector &b) {
     for (size_t i = 0; i < _data.size(); ++i) {
         _data[i] = a._data[i] ^ b._data[i];
     }
+    _changed = true;
+    return *this;
+}
+
+bitvector &bitvector::set_not(const bitvector &a) {
+    assert(_N == a._N);
+    for (size_t i = 0; i < _data.size(); ++i) {
+        _data[i] = ~a._data[i];
+    }
+    if (_N & 63)
+        _data.back() &= (1ull << (_N & 63)) - 1;
     _changed = true;
     return *this;
 }

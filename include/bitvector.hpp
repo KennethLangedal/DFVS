@@ -19,7 +19,11 @@ public:
 
     bool operator==(const bitvector_iterator &v);
     bool operator!=(const bitvector_iterator &v);
+
+    bitvector_iterator &advance(size_t dist);
 };
+
+
 
 class bitvector {
 private:
@@ -35,7 +39,7 @@ public:
 
     size_t popcount() const;
     size_t size() const;
-    size_t intersection_size(const bitvector &v) const;
+    size_t intersection_size(const bitvector &v) const; // depricated
 
     bool get(size_t i) const;
 
@@ -53,10 +57,13 @@ public:
     bitvector &operator|=(const bitvector &v);
     bitvector &operator^=(const bitvector &v);
 
-    bitvector &set_and(const bitvector &a, const bitvector &b);
-    bitvector &set_or(const bitvector &a, const bitvector &b);
-    bitvector &set_xor(const bitvector &a, const bitvector &b);
-    bitvector &set_and_not(const bitvector &a, const bitvector &b);
+
+
+    bitvector &set_and(const bitvector &a, const bitvector &b); // depricated
+    bitvector &set_or(const bitvector &a, const bitvector &b); // depricated
+    bitvector &set_xor(const bitvector &a, const bitvector &b); // depricated
+    bitvector &set_not(const bitvector &a); // depricated
+    bitvector &set_and_not(const bitvector &a, const bitvector &b); // depricated
 
     bitvector_iterator begin() const;
     bitvector_iterator end() const;

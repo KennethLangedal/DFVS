@@ -39,17 +39,45 @@ bool has_cycle(const graph &g, const bitvector &tabu, size_t u, size_t &length, 
     return false;
 }
 
+// size_t lower_bound_VC(const graph &g, const bitvector &nodes, const std::vector<size_t> &order, bitvector &visited) {
+//     static std::vector<size_t> set_id(g.size()), set_sizes(g.size()), set_counts(g.size());
+//     static std::vector<bool> set_full(g.size());
+//     if (set_id.size() != g.size()) {
+//         set_id.resize(g.size());
+//         set_sizes.resize(g.size());
+//         set_counts.resize(g.size());
+//         set_full.resize(g.size());
+//     }
+
+//     size_t res = 0;
+//     std::fill(std::begin(set_sizes), std::end(set_sizes), 0);
+//     for (size_t u : nodes) {
+//         set_id[u] = g.size();
+//     }
+//     for (size_t u : order) {
+
+//     }
+
+//     return 0;
+// }
+
 // Lower bound counting length 2 cycle cliques and general cycles
 size_t lower_bound(const graph &g, const bitvector &nodes) {
     static bitvector visited(g.size()), tmp(g.size()), tmp2(g.size()), tmp3(g.size()), tmp4(g.size());
+    static std::vector<size_t> order;
     if (visited.size() != g.size()) {
         visited = bitvector(g.size()), tmp = bitvector(g.size()), tmp2 = bitvector(g.size()), tmp3 = bitvector(g.size()), tmp4 = bitvector(g.size());
     }
+    order.clear();
+    for (size_t u : nodes) {
+        order.push_back(u);
+    }
+    std::sort(std::begin(order), std::end(order), [&](size_t a, size_t b) { return g.out_degree(a) + g.in_degree(a) < g.out_degree(b) + g.in_degree(b); });
     visited.set_and_not(nodes, g.active_vertices());
 
     size_t res = 0;
-    // length 2 cycle cliques
-    for (size_t u : nodes) {
+    // length 2 cycle cliques (2 and 3)
+    for (size_t u : order) {
         if (visited.get(u))
             continue;
         tmp.set_and(g.out(u), g.in(u));
@@ -85,8 +113,8 @@ size_t lower_bound(const graph &g, const bitvector &nodes) {
     }
     size_t length;
 
-    // length 3 cycles
-    for (size_t u : nodes) {
+    // General case
+    for (size_t u : order) {
         if (visited.get(u))
             continue;
         if (has_cycle(g, visited, u, length, prev)) {
@@ -106,7 +134,7 @@ size_t lower_bound(const graph &g, const bitvector &nodes) {
 size_t find_dense_branch_node(const graph &g, const bitvector &nodes) {
     size_t best = g.size(), best_cnt;
     for (size_t u : nodes) {
-        size_t u_cnt = g.in_degree(u) + g.out_degree(u); // g.out(u).intersection_size(g.in(u));
+        size_t u_cnt = g.in_degree(u) + g.out_degree(u); // g.in_degree(u) + g.out_degree(u);
         if (best == g.size() || u_cnt > best_cnt) {
             best = u;
             best_cnt = u_cnt;
@@ -116,20 +144,80 @@ size_t find_dense_branch_node(const graph &g, const bitvector &nodes) {
     return best;
 }
 
+bool clique(const graph &g, const bitvector &n) {
+    if (n.popcount() < 2)
+        return true;
+    for (size_t u : n) {
+        if (g.out(u).intersection_size(n) != n.popcount() - 1)
+            return false;
+    }
+    return true;
+}
+
+// When deciding to include u
+void add_or_exclude_extra(graph &g, bitvector &fvs, graph_search &gs, size_t u) {
+    if (g.out(u).intersection_size(g.in(u)) == 0) {
+        if (g.out(u).popcount() == 2) {
+            for (size_t v : g.out(u)) {
+                exclude_from_fvs(g, fvs, gs, v);
+            }
+        }
+        if (g.in(u).popcount() == 2) {
+            for (size_t v : g.in(u)) {
+                exclude_from_fvs(g, fvs, gs, v);
+            }
+        }
+    } else if (g.out(u) == g.in(u)) { // Mirrors
+        gs.tmp.set_and(g.out(u), g.in(u));
+        gs.tmp1.clear();
+        for (size_t v : gs.tmp) {
+            gs.tmp2.set_and(g.out(v), g.in(v));
+            gs.tmp1 |= gs.tmp2;
+        }
+        gs.tmp1.set_and_not(gs.tmp1, gs.tmp);
+        for (size_t v : gs.tmp1) {
+            gs.tmp2.set_and(g.out(v), g.in(v));
+            gs.tmp.set_and_not(gs.tmp, gs.tmp2);
+            if (gs.tmp.popcount() == 0 || clique(g, gs.tmp)) { // empty or clique
+                add_to_fvs(g, fvs, gs, v);
+            }
+            gs.tmp.set_and(g.out(u), g.in(u));
+        }
+    } else if (g.out(u).intersection_size(g.in(u)) == 1) {
+        if (g.out_degree(u) == 2) {
+            gs.tmp.set_and_not(g.out(u), g.in(u));
+            size_t v = *gs.tmp.begin();
+            exclude_from_fvs(g, fvs, gs, v);
+        }
+        if (g.in_degree(u) == 2) {
+            gs.tmp.set_and_not(g.in(u), g.out(u));
+            size_t v = *gs.tmp.begin();
+            exclude_from_fvs(g, fvs, gs, v);
+        }
+    }
+}
+
 bitvector solve_req(graph &g, graph_search &gs, size_t cost, size_t ub, size_t d, size_t &lb_counter) {
     size_t t0 = g.get_timestamp();
     bitvector fvs(g.size());
 
     std::vector<bitvector> SCC;
     reduce_graph(g, fvs, g.active_vertices(), gs, SCC);
+
     if (g.active_vertices().popcount() == 0) {
-        // std::cout << d << " " << ub << " " << lb_counter << '\r' << std::flush;
+#ifdef VERBOSE
+        std::cout << "\x1b[2K" << d << " " << ub << " " << lb_counter << '\r' << std::flush;
+#endif
         g.unfold_graph(t0, fvs);
         return fvs;
     }
+
     if (cost + fvs.popcount() + lower_bound(g, g.active_vertices()) >= ub) {
         fvs.fill();
         lb_counter++;
+#ifdef VERBOSE
+        std::cout << "\x1b[2K" << d << " " << ub << " " << lb_counter << '\r' << std::flush;
+#endif
         return fvs;
     }
 
@@ -138,6 +226,7 @@ bitvector solve_req(graph &g, graph_search &gs, size_t cost, size_t ub, size_t d
 
     // include u
     bitvector fvs_inc_u(g.size());
+    add_or_exclude_extra(g, fvs_inc_u, gs, u);
     add_to_fvs(g, fvs_inc_u, gs, u);
     fvs_inc_u |= solve_req(g, gs, cost + fvs_inc_u.popcount() + fvs.popcount(), ub, d + 1, lb_counter);
     g.unfold_graph(t1, fvs_inc_u);
@@ -172,21 +261,23 @@ size_t k_param(const graph &g) {
     return k;
 }
 
+#include "local_search.hpp"
+
 bitvector solve(graph &g) {
     graph_search gs(g.size());
     std::vector<bitvector> SCC;
     bitvector res(g.size());
-    reduce_graph(g, res, g.active_vertices(), gs, SCC);
+
+    reduce_graph(g, res, g.active_vertices(), gs, SCC, true);
 
     if (g.active_vertices().popcount() == 0) {
         g.unfold_graph(0, res);
         return res;
     }
 
-    std::cout << g.active_vertices().popcount() << " " << SCC.size() << std::endl;
-
-    std::ofstream fs("scripts/plot_data");
-    g.print_edgelist(fs, g.active_vertices());
+#ifdef VERBOSE
+    std::cout << SCC.size() << std::endl;
+#endif
 
     for (auto &&c : SCC) {
 
@@ -212,11 +303,49 @@ bitvector solve(graph &g) {
         std::stringstream ss(new_graph);
         ss >> _g;
 
-        // std::cout << c.popcount() << " " << edges << " " << k_param(_g) << std::endl;
+#ifdef VERBOSE
+        std::cout << _g.size() << " " << res.popcount() << std::endl;
+#endif
+
+#ifdef PRINT_COMPONENT
+        std::ofstream fs("scripts/plot_data");
+        _g.print_edgelist(fs, _g.active_vertices());
+        exit(0);
+#endif
+        // bitvector _fvs(_g.size());
+        // _fvs.fill();
+
+        // for (size_t i = 0; i < 10; ++i) {
+        //     local_search ls(_g.size(), i);
+        //     ls.search(_g);
+        //     if (ls.get_best().popcount() < _fvs.popcount()) {
+        //         _fvs = ls.get_best();
+        //     }
+        // }
+
+        local_search ls(_g.size(), i);
+        ls.search(_g);
+
+#ifdef VERBOSE
+        std::cout << "\x1b[2K" << ls.get_best().popcount() + res.popcount() << std::endl;
+#endif
 
         graph_search _gs(_g.size());
         size_t lb_counter = 0;
-        bitvector _fvs = solve_req(_g, _gs, 0, _g.size(), 0, lb_counter);
+
+        bitvector _fvs = solve_req(_g, _gs, 0, ls.get_best().popcount(), 0, lb_counter);
+        // bitvector _fvs = solve_req(_g, _gs, 0, _g.size() + 1, 0, lb_counter);
+
+        if (ls.get_best().popcount() < _fvs.popcount()) {
+            _fvs = ls.get_best();
+        }
+
+#ifdef VERBOSE
+        std::cout << "\x1b[2K" << _g.size() << " " << ls.get_best().popcount() << " " << lower_bound(_g, _g.active_vertices()) << " " << _fvs.popcount() << std::endl;
+#endif
+        // for (size_t u : _fvs) {
+        //     res.set(org_label[u]);
+        // }
 
         for (size_t u : _fvs) {
             res.set(org_label[u]);
