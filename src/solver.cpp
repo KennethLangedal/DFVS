@@ -39,28 +39,6 @@ bool has_cycle(const graph &g, const bitvector &tabu, size_t u, size_t &length, 
     return false;
 }
 
-// size_t lower_bound_VC(const graph &g, const bitvector &nodes, const std::vector<size_t> &order, bitvector &visited) {
-//     static std::vector<size_t> set_id(g.size()), set_sizes(g.size()), set_counts(g.size());
-//     static std::vector<bool> set_full(g.size());
-//     if (set_id.size() != g.size()) {
-//         set_id.resize(g.size());
-//         set_sizes.resize(g.size());
-//         set_counts.resize(g.size());
-//         set_full.resize(g.size());
-//     }
-
-//     size_t res = 0;
-//     std::fill(std::begin(set_sizes), std::end(set_sizes), 0);
-//     for (size_t u : nodes) {
-//         set_id[u] = g.size();
-//     }
-//     for (size_t u : order) {
-
-//     }
-
-//     return 0;
-// }
-
 // Lower bound counting length 2 cycle cliques and general cycles
 size_t lower_bound(const graph &g, const bitvector &nodes) {
     static bitvector visited(g.size()), tmp(g.size()), tmp2(g.size()), tmp3(g.size()), tmp4(g.size());

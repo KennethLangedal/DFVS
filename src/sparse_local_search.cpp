@@ -208,25 +208,23 @@ void sparse_local_search::greedy_one_zero_swaps(const sparse_graph &g) {
             if (config.get(u))
                 continue;
             auto [i_t, score_t] = move_score(g, u, true);
+            auto [i_f, score_f] = move_score(g, u, false);
             if (score_t < 0) {
                 apply_move(g, u, i_t, true);
                 found = true;
-                continue;
-            }
-            auto [i_f, score_f] = move_score(g, u, false);
-            if (score_f < 0) {
+            } else if (score_f < 0) {
                 apply_move(g, u, i_f, false);
                 found = true;
-                continue;
+            } else if (score_t == 0) {
+                apply_move(g, u, i_t, true);
+            } else if (score_f == 0) {
+                apply_move(g, u, i_f, false);
             }
         }
     }
     if (N - config.popcount() < best_dfvs.popcount()) {
         best_dfvs.set_not(config);
     }
-}
-
-void sparse_local_search::greedy_two_one_swaps(const sparse_graph &g) {
 }
 
 const bitvector &sparse_local_search::get_best() const {

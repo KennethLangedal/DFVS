@@ -32,7 +32,7 @@ int main(int, char **) {
     reduce_graph(g, res, gs);
 
 #ifdef VERBOSE
-    cout << g.size() << " " << g.active_vertices().popcount() << endl;
+    cout << g.size() << " " << g.active_vertices().popcount() << " " << res.popcount() << endl;
 
     size_t total_degree = 0, total_pi_degree = 0;
     for (auto u : g.active_vertices()) {
@@ -78,6 +78,8 @@ int main(int, char **) {
     double T = 0.25;
 
     uint32_t imp = _g.size();
+
+    ls.greedy_one_zero_swaps(_g);
 
     while (!tle) {
         ls.set_temperature(T);

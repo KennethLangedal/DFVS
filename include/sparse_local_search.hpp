@@ -38,8 +38,6 @@ public:
 
     void greedy_one_zero_swaps(const sparse_graph &g);
 
-    void greedy_two_one_swaps(const sparse_graph &g);
-
     void shuffle_solution(const sparse_graph &g);
 
     const bitvector &get_best() const;
