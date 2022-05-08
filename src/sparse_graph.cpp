@@ -92,18 +92,18 @@ void sparse_graph::remove_edge(uint32_t u, uint32_t v) {
 }
 
 void sparse_graph::add_edge(uint32_t u, uint32_t v) {
-    assert(u < _N && v < _N);
+    assert(is_active(u) && is_active(v));
     if (has_edge(u, v))
         return;
 
-    if (has_edge(v, u)) {
+    if (u == v) {
+        _pi_edges[u].insert(std::lower_bound(std::begin(_pi_edges[u]), std::end(_pi_edges[u]), u), u);
+    } else if (has_edge(v, u)) {
         _in_edges_non_pi[u].erase(std::lower_bound(std::begin(_in_edges_non_pi[u]), std::end(_in_edges_non_pi[u]), v));
         _out_edges_non_pi[v].erase(std::lower_bound(std::begin(_out_edges_non_pi[v]), std::end(_out_edges_non_pi[v]), u));
 
         _pi_edges[u].insert(std::lower_bound(std::begin(_pi_edges[u]), std::end(_pi_edges[u]), v), v);
         _pi_edges[v].insert(std::lower_bound(std::begin(_pi_edges[v]), std::end(_pi_edges[v]), u), u);
-    } else if (u == v) {
-        _pi_edges[u].insert(std::lower_bound(std::begin(_pi_edges[u]), std::end(_pi_edges[u]), u), u);
     } else {
         _out_edges_non_pi[u].insert(std::lower_bound(std::begin(_out_edges_non_pi[u]), std::end(_out_edges_non_pi[u]), v), v);
         _in_edges_non_pi[v].insert(std::lower_bound(std::begin(_in_edges_non_pi[v]), std::end(_in_edges_non_pi[v]), u), u);
@@ -184,6 +184,8 @@ void sparse_graph::parse_graph(std::istream &is, size_t N) {
     };
 
     char c;
+    get(c);
+    
     auto fscan = [&](auto &v) {
         get(c);
         v = 0;

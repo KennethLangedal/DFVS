@@ -21,7 +21,7 @@ bitvector_iterator::bitvector_iterator(std::vector<uint64_t>::const_iterator it,
     }
 }
 
-size_t bitvector_iterator::operator*() const {
+uint32_t bitvector_iterator::operator*() const {
     return _i * 64 + __builtin_ctzll(_t);
 }
 

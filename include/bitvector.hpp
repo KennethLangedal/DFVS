@@ -12,7 +12,7 @@ private:
 public:
     bitvector_iterator(std::vector<uint64_t>::const_iterator it, size_t N, bool start);
 
-    size_t operator*() const;
+    uint32_t operator*() const;
 
     bitvector_iterator &operator++();
     bitvector_iterator operator++(int);
@@ -22,8 +22,6 @@ public:
 
     bitvector_iterator &advance(size_t dist);
 };
-
-
 
 class bitvector {
 private:
@@ -39,7 +37,7 @@ public:
 
     size_t popcount() const;
     size_t size() const;
-    size_t intersection_size(const bitvector &v) const; // depricated
+    size_t intersection_size(const bitvector &v) const;
 
     bool get(size_t i) const;
 
@@ -57,13 +55,11 @@ public:
     bitvector &operator|=(const bitvector &v);
     bitvector &operator^=(const bitvector &v);
 
-
-
-    bitvector &set_and(const bitvector &a, const bitvector &b); // depricated
-    bitvector &set_or(const bitvector &a, const bitvector &b); // depricated
-    bitvector &set_xor(const bitvector &a, const bitvector &b); // depricated
-    bitvector &set_not(const bitvector &a); // depricated
-    bitvector &set_and_not(const bitvector &a, const bitvector &b); // depricated
+    bitvector &set_and(const bitvector &a, const bitvector &b);
+    bitvector &set_or(const bitvector &a, const bitvector &b);
+    bitvector &set_xor(const bitvector &a, const bitvector &b);
+    bitvector &set_not(const bitvector &a);
+    bitvector &set_and_not(const bitvector &a, const bitvector &b);
 
     bitvector_iterator begin() const;
     bitvector_iterator end() const;

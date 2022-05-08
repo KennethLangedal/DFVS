@@ -1,6 +1,7 @@
+#include "dense_graph.hpp"
 #include "sparse_graph.hpp"
-#include "sparse_local_search.hpp"
-#include "sparse_reductions.hpp"
+#include "reductions.hpp"
+#include "local_search.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -17,19 +18,24 @@ void term(int signum) {
     tle = 1;
 }
 
-int main(int, char **) {
-
-    struct sigaction action;
-    memset(&action, 0, sizeof(struct sigaction));
-    action.sa_handler = term;
-    sigaction(SIGTERM, &action, NULL);
-
-    sparse_graph g;
-    cin >> g;
-
+template <class graph>
+void solve_heuristic(graph &g) {
     graph_search gs(g.size());
     bitvector res(g.size());
-    reduce_graph(g, res, gs);
+    reduction_engine<graph> re;
+    reduce_graph(g, res, gs, re);
+
+    if (g.active_vertices().popcount() == 0) {
+        re.unfold_graph(g, 0, res);
+#ifdef VERBOSE
+        cout << res.popcount() << endl;
+#else
+        for (auto u : res) {
+            cout << u + 1 << endl;
+        }
+#endif
+        return;
+    }
 
 #ifdef VERBOSE
     cout << g.size() << " " << g.active_vertices().popcount() << " " << res.popcount() << endl;
@@ -40,77 +46,73 @@ int main(int, char **) {
         total_pi_degree += g.pi_degree(u);
     }
     cout << (double)total_degree / (double)g.active_vertices().popcount() << " " << ((double)total_pi_degree / 2.0) / (double)g.active_vertices().popcount() << endl;
-
 #endif
 
-    if (g.active_vertices().popcount() == 0) {
-#ifdef VERBOSE
-        cout << res.popcount() << endl;
-#else
-        for (auto u : res) {
-            cout << u + 1 << endl;
-        }
-#endif
-        return 0;
+    if (g.active_vertices().popcount() <= (1 << 16)) {
+        dense_graph _g(g);
+    } else {
+        sparse_graph _g(g);
+    }
+}
+
+int main(int, char **) {
+
+    struct sigaction action;
+    memset(&action, 0, sizeof(struct sigaction));
+    action.sa_handler = term;
+    sigaction(SIGTERM, &action, NULL);
+
+    size_t N, E, t;
+    cin >> N >> E >> t;
+
+    if (N <= (1 << 16) || true) {
+        dense_graph g;
+        g.parse_graph(cin, N);
+        solve_heuristic(g);
+    } else {
+        sparse_graph g;
+        g.parse_graph(cin, N);
+        solve_heuristic(g);
     }
 
-    vector<size_t> org_label(g.active_vertices().popcount()), new_label(g.size(), g.size());
-    size_t i = 0;
-    for (auto u : g.active_vertices()) {
-        new_label[u] = i;
-        org_label[i++] = u;
-    }
+    //     sparse_local_search ls(_g, 0.4, 0);
 
-    string new_graph = to_string(g.active_vertices().popcount()) + " 0 0\n";
-    for (auto u : g.active_vertices()) {
-        for (auto v : g.out(u)) {
-            new_graph += to_string(new_label[v] + 1) + " ";
-        }
-        new_graph += "\n";
-    }
+    //     double T = 0.25;
 
-    sparse_graph _g;
-    stringstream ss(new_graph);
-    ss >> _g;
+    //     uint32_t imp = _g.size();
 
-    sparse_local_search ls(_g, 0.4, 0);
+    //     ls.greedy_one_zero_swaps(_g);
 
-    double T = 0.25;
+    //     while (!tle) {
+    //         ls.set_temperature(T);
+    //         ls.search(_g, std::max(_g.size(), 2500ul));
 
-    uint32_t imp = _g.size();
+    //         if (imp > ls.get_best().popcount()) {
+    //             imp = ls.get_best().popcount();
+    //         } else {
+    //             T *= 0.999;
+    //             if (T < 0.1) {
+    //                 ls.greedy_one_zero_swaps(_g);
+    //                 ls.shuffle_solution(_g);
+    //                 T = 0.25;
+    //             }
+    //         }
 
-    ls.greedy_one_zero_swaps(_g);
+    // #ifdef VERBOSE
+    //         std::cout << "\x1b[2K" << ls.get_best().popcount() + res.popcount() << " " << ls.get_current() + res.popcount() << " " << T << '\r' << std::flush;
+    // #endif
+    //     }
 
-    while (!tle) {
-        ls.set_temperature(T);
-        ls.search(_g, std::max(_g.size(), 2500ul));
+    //     for (auto u : ls.get_best()) {
+    //         res.set(org_label[u]);
+    //     }
 
-        if (imp > ls.get_best().popcount()) {
-            imp = ls.get_best().popcount();
-        } else {
-            T *= 0.999;
-            if (T < 0.1) {
-                ls.greedy_one_zero_swaps(_g);
-                ls.shuffle_solution(_g);
-                T = 0.25;
-            }
-        }
-
-#ifdef VERBOSE
-        std::cout << "\x1b[2K" << ls.get_best().popcount() + res.popcount() << " " << ls.get_current() + res.popcount() << " " << T << '\r' << std::flush;
-#endif
-    }
-
-    for (auto u : ls.get_best()) {
-        res.set(org_label[u]);
-    }
-
-#ifdef VERBOSE
-    cout << "\x1b[2K" << res.popcount() << endl;
-#else
-    for (auto u : res) {
-        cout << u + 1 << endl;
-    }
-#endif
+    // #ifdef VERBOSE
+    //     cout << "\x1b[2K" << res.popcount() << endl;
+    // #else
+    //     for (auto u : res) {
+    //         cout << u + 1 << endl;
+    //     }
+    // #endif
     return 0;
 }

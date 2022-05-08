@@ -10,7 +10,8 @@ using namespace std;
 
 #ifdef EXACT
 
-int main(int, char **) {
+int main(int, char **)
+{
     graph g;
     cin >> g;
 
@@ -18,7 +19,8 @@ int main(int, char **) {
 
     auto fvs = solve(g);
 
-    cout << endl << "Solution size " << fvs.popcount() << endl;
+    cout << endl
+         << "Solution size " << fvs.popcount() << endl;
 
     // for (size_t v : fvs) {
     //     cout << v + 1 << endl;
@@ -33,7 +35,8 @@ int main(int, char **) {
 
 #include "local_search.hpp"
 
-int main(int, char **) {
+int main(int, char **)
+{
     graph g;
     cin >> g;
 
