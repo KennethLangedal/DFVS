@@ -167,7 +167,7 @@ bitvector solve(sparse_graph &g) {
 
         std::cout << "Heigest min degree " << max_in_out << ", Pi edges: " << pi << ", Non-pi edges: " << non_pi << std::endl;
 
-        if (true || (non_pi > 0 && non_pi < 10 && _g.size() < 200)) {
+        if (false && (non_pi > 0 && non_pi < 10 && _g.size() < 200)) {
             std::cout << "Printing graph" << std::endl;
             std::ofstream fs("scripts/plot_data");
             for (auto u : _g.active_vertices()) {

@@ -164,7 +164,7 @@ bool dominating_vertex_reduction(sparse_graph &g, bitvector &fvs, graph_search &
 
     // unconfined rule, VC only
 
-    if (false && g.pi_only(u)) {
+    if (g.pi_only(u)) {
         static std::vector<uint32_t> S, NS, NSI;
         S.clear();
         NS.clear();
