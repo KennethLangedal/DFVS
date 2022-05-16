@@ -47,7 +47,7 @@ bool bitvector_iterator::operator!=(const bitvector_iterator &v) {
 
 bitvector_iterator &bitvector_iterator::advance(size_t dist) {
     size_t pop;
-    while (_i < _N && dist > 0) {
+    while (_i < _N && (_t == 0 || dist > 0)) {
         pop = __builtin_popcountll(_t);
         if (pop <= dist) {
             _t = 0;

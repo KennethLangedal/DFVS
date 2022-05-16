@@ -3,6 +3,34 @@
 #include <cassert>
 #include <numeric>
 
+sparse_graph::sparse_graph(const sparse_graph &g, const bitvector &nodes)
+    : _N(nodes.popcount()), _active(_N),
+      _out_edges(_N), _out_edges_non_pi(_N), _in_edges(_N), _in_edges_non_pi(_N), _pi_edges(_N),
+      _original_labels(_N) {
+
+    _active.fill();
+
+    std::vector<uint32_t> new_labels(g.size());
+    uint32_t i = 0;
+    for (auto u : nodes) {
+        new_labels[u] = i;
+        _original_labels[i++] = u;
+    }
+
+    for (auto u : nodes) {
+        for (auto v : g.out(u))
+            _out_edges[new_labels[u]].push_back(new_labels[v]);
+        for (auto v : g.out_non_pi(u))
+            _out_edges_non_pi[new_labels[u]].push_back(new_labels[v]);
+        for (auto v : g.in(u))
+            _in_edges[new_labels[u]].push_back(new_labels[v]);
+        for (auto v : g.in_non_pi(u))
+            _in_edges_non_pi[new_labels[u]].push_back(new_labels[v]);
+        for (auto v : g.pi(u))
+            _pi_edges[new_labels[u]].push_back(new_labels[v]);
+    }
+}
+
 size_t sparse_graph::size() const {
     return _N;
 }
@@ -10,6 +38,11 @@ size_t sparse_graph::size() const {
 bool sparse_graph::is_active(uint32_t u) const {
     assert(u < _N);
     return _active.get(u);
+}
+
+bool sparse_graph::pi_only(uint32_t u) const {
+    assert(u < _N);
+    return out_degree_non_pi(u) == 0 && in_degree_non_pi(u) == 0;
 }
 
 bool sparse_graph::has_edge(uint32_t u, uint32_t v) const {
@@ -162,7 +195,7 @@ const std::vector<uint32_t> &sparse_graph::pi(uint32_t u) const {
     return _pi_edges[u];
 }
 
-void sparse_graph::parse_graph(std::istream &is, size_t N) {
+std::istream &operator>>(std::istream &is, sparse_graph &g) {
     size_t N_BUFFER = 1048576;
     std::vector<char> buffer(N_BUFFER);
     size_t buffer_i = N_BUFFER;
@@ -184,8 +217,6 @@ void sparse_graph::parse_graph(std::istream &is, size_t N) {
     };
 
     char c;
-    get(c);
-    
     auto fscan = [&](auto &v) {
         get(c);
         v = 0;
@@ -202,26 +233,29 @@ void sparse_graph::parse_graph(std::istream &is, size_t N) {
         peek(c);
     }
 
-    size_t u, v;
+    size_t N, E, t, u, v;
+    fscan(N);
+    fscan(E);
+    fscan(t);
 
-    _N = N;
-    _active = bitvector(N);
-    _active.fill();
-    _out_edges.resize(N);
-    _out_edges_non_pi.resize(N);
-    _in_edges.resize(N);
-    _in_edges_non_pi.resize(N);
-    _pi_edges.resize(N);
-    _original_labels.resize(N);
+    g._N = N;
+    g._active = bitvector(N);
+    g._active.fill();
+    g._out_edges.resize(N);
+    g._out_edges_non_pi.resize(N);
+    g._in_edges.resize(N);
+    g._in_edges_non_pi.resize(N);
+    g._pi_edges.resize(N);
+    g._original_labels.resize(N);
 
-    std::iota(std::begin(_original_labels), std::end(_original_labels), 0);
+    std::iota(std::begin(g._original_labels), std::end(g._original_labels), 0);
 
     u = 0;
     while (u < N) {
         fscan(v);
         if (v > 0) {
-            _out_edges[u].push_back(v - 1);
-            _in_edges[v - 1].push_back(u);
+            g._out_edges[u].push_back(v - 1);
+            g._in_edges[v - 1].push_back(u);
         }
         if (c == '\n') {
             u++;
@@ -235,21 +269,22 @@ void sparse_graph::parse_graph(std::istream &is, size_t N) {
     }
 
     for (uint32_t i = 0; i < N; ++i) {
-        std::sort(std::begin(_in_edges[i]), std::end(_in_edges[i]));
-        std::sort(std::begin(_out_edges[i]), std::end(_out_edges[i]));
+        std::sort(std::begin(g._in_edges[i]), std::end(g._in_edges[i]));
+        std::sort(std::begin(g._out_edges[i]), std::end(g._out_edges[i]));
         std::set_intersection(
-            std::begin(_in_edges[i]), std::end(_in_edges[i]),
-            std::begin(_out_edges[i]), std::end(_out_edges[i]),
-            std::back_inserter(_pi_edges[i]));
+            std::begin(g._in_edges[i]), std::end(g._in_edges[i]),
+            std::begin(g._out_edges[i]), std::end(g._out_edges[i]),
+            std::back_inserter(g._pi_edges[i]));
         std::set_difference(
-            std::begin(_in_edges[i]), std::end(_in_edges[i]),
-            std::begin(_out_edges[i]), std::end(_out_edges[i]),
-            std::back_inserter(_in_edges_non_pi[i]));
+            std::begin(g._in_edges[i]), std::end(g._in_edges[i]),
+            std::begin(g._out_edges[i]), std::end(g._out_edges[i]),
+            std::back_inserter(g._in_edges_non_pi[i]));
         std::set_difference(
-            std::begin(_out_edges[i]), std::end(_out_edges[i]),
-            std::begin(_in_edges[i]), std::end(_in_edges[i]),
-            std::back_inserter(_out_edges_non_pi[i]));
+            std::begin(g._out_edges[i]), std::end(g._out_edges[i]),
+            std::begin(g._in_edges[i]), std::end(g._in_edges[i]),
+            std::back_inserter(g._out_edges_non_pi[i]));
     }
+    return is;
 }
 
 bool includes(const std::vector<uint32_t> &a, const std::vector<uint32_t> &b) {

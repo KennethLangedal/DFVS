@@ -13,13 +13,11 @@ private:
 
 public:
     sparse_graph() = default;
-
-    // Relabel constructor
-    template <class graph>
-    sparse_graph(const graph &g);
+    sparse_graph(const sparse_graph &g, const bitvector &nodes);
 
     size_t size() const;
     bool is_active(uint32_t u) const;
+    bool pi_only(uint32_t u) const;
     bool has_edge(uint32_t u, uint32_t v) const;
     uint32_t original_label(uint32_t u) const;
 
@@ -44,38 +42,11 @@ public:
     const std::vector<uint32_t> &in_non_pi(uint32_t u) const;
     const std::vector<uint32_t> &pi(uint32_t u) const;
 
-    void parse_graph(std::istream &is, size_t N);
+    friend std::istream &operator>>(std::istream &is, sparse_graph &g);
 };
+
+std::istream &operator>>(std::istream &is, sparse_graph &g);
 
 bool includes(const std::vector<uint32_t> &a, const std::vector<uint32_t> &b);
 
 uint32_t intersection_size(const std::vector<uint32_t> &a, const std::vector<uint32_t> &b);
-
-template <class graph>
-sparse_graph::sparse_graph(const graph &g)
-    : _N(g.active_vertices().popcount()), _active(_N),
-      _out_edges(_N), _out_edges_non_pi(_N), _in_edges(_N), _in_edges_non_pi(_N), _pi_edges(_N),
-      _original_labels(g.size()) {
-
-    _active.fill();
-
-    std::vector<uint32_t> new_labels(g.size());
-    uint32_t i = 0;
-    for (auto u : g.active_vertices()) {
-        new_labels[u] = i;
-        _original_labels[i++] = u;
-    }
-
-    for (auto u : g.active_vertices()) {
-        for (auto v : g.out(u))
-            _out_edges[new_labels[u]].push_back(new_labels[v]);
-        for (auto v : g.out_non_pi(u))
-            _out_edges_non_pi[new_labels[u]].push_back(new_labels[v]);
-        for (auto v : g.in(u))
-            _in_edges[new_labels[u]].push_back(new_labels[v]);
-        for (auto v : g.in_non_pi(u))
-            _in_edges_non_pi[new_labels[u]].push_back(new_labels[v]);
-        for (auto v : g.pi(u))
-            _pi_edges[new_labels[u]].push_back(new_labels[v]);
-    }
-}
