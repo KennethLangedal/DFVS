@@ -431,14 +431,16 @@ bool SCC_edge_reduction(sparse_graph &g, bitvector &fvs, graph_search &gs) {
     return res;
 }
 
+#include <fstream>
+
 bool reduction_half_lp(sparse_graph &g, bitvector &fvs, graph_search &gs, reduction_engine &re) {
     for (auto u : g.active_vertices()) {
         if (!g.pi_only(u))
             return false;
     }
 
-    std::vector<std::tuple<uint32_t, uint32_t, int32_t>> edges;
-    uint32_t s = g.size() * 2, t = (g.size() * 2) + 1;
+    std::vector<std::tuple<int32_t, int32_t, int32_t>> edges;
+    int32_t s = g.size() * 2, t = (g.size() * 2) + 1;
     for (auto u : g.active_vertices()) {
         edges.push_back({s, u, 1});
         edges.push_back({g.size() + u, t, 1});
@@ -446,7 +448,8 @@ bool reduction_half_lp(sparse_graph &g, bitvector &fvs, graph_search &gs, reduct
             edges.push_back({u, g.size() + v, 1});
         }
     }
-    flow_graph<uint32_t, int32_t> fg(t + 1, edges);
+
+    flow_graph<int32_t, int32_t> fg(t + 1, edges);
     int32_t flow = fg.solve(s, t), active_count = g.active_vertices().popcount();
     std::vector<uint32_t> current, next;
     std::vector<bool> visited(g.size() * 2, false), L(g.size(), true), R(g.size(), false);
@@ -484,10 +487,6 @@ bool reduction_half_lp(sparse_graph &g, bitvector &fvs, graph_search &gs, reduct
             res = true;
             add_to_fvs(g, fvs, gs, re, u);
         }
-    }
-
-    if (res) {
-        std::cout << "LP did something!" << std::endl;
     }
 
     return res;

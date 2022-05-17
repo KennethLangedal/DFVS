@@ -18,54 +18,42 @@ void term(int signum) {
     tle = 1;
 }
 
-// bitvector search_until_signal(sparse_graph g, size_t cost = 0) {
-//     double T = 0.15;
-//     local_search ls(g, T, 0);
-//     uint32_t imp = g.size(), no_imp = 0;
-//     ls.greedy_one_zero_swaps(g);
-
-//     while (!tle) {
-//         ls.set_temperature(T);
-//         ls.search(g, std::max(g.size() / 3, 2500ul));
-
-//         if (imp > ls.get_best().popcount()) {
-//             imp = ls.get_best().popcount();
-//             no_imp = 0;
-//         } else if (no_imp++ > 3) {
-//             T *= 0.999;
-//             if (T < 0.08) {
-//                 ls.shuffle_solution(g);
-//                 ls.greedy_one_zero_swaps(g);
-//                 T = 0.25;
-//             }
-//             no_imp = 0;
-//         }
-// #ifdef VERBOSE
-//         std::cout << "\x1b[2K" << ls.get_best().popcount() + cost << " " << ls.get_current().popcount() + cost << " " << T << '\r' << std::flush;
-// #endif
-//     }
-//     return ls.get_best();
-// }
+/*
+double Ts = 0.15 + ((1.0 - (std::min((double)g.size(), 100000.0) / 100000.0)) * 0.2)
+Ts = 0.15 + ((1.0 - (std::min((double)ls.get_best().popcount(), 100000.0) / 100000.0)) * 0.15);
+*/
 
 bitvector search_until_signal(sparse_graph g, size_t cost = 0) {
-    double T = 0.15, alfa = 0.999;
-    local_search_edgew ls(g);
-    uint32_t imp = g.size(), no_imp = 0;
+    double Ts = 0.35, Tf = 0.08, T = Ts, alfa = 0.999;
 
-    uint32_t step = 0;
+#ifdef VERBOSE
+    std::cout << "Ts " << Ts << ", Tf " << Tf << std::endl;
+#endif
+
+    local_search ls(g, T, 0);
+    uint32_t imp = g.size(), no_imp = 0;
+    ls.greedy_one_zero_swaps(g);
 
     while (!tle) {
+        ls.set_temperature(T);
+        ls.search(g, 10000);
 
-        ls.search(100);
-
-        ls.shuffle_solution();
-
-        step++;
+        if (imp > ls.get_best().popcount()) {
+            imp = ls.get_best().popcount();
+            no_imp = 0;
+        } else if (no_imp++ > 3) {
+            T *= alfa;
+            if (T < Tf) {
+                ls.shuffle_solution(g);
+                ls.greedy_one_zero_swaps(g);
+                T = Ts;
+            }
+            no_imp = 0;
+        }
 #ifdef VERBOSE
-        std::cout << "\x1b[2K" << ls.get_best().popcount() + cost << " " << ls.get_current().popcount() + cost << " " << step << '\r' << std::flush;
+        std::cout << "\x1b[2K" << ls.get_best().popcount() + cost << " " << ls.get_current().popcount() + cost << " " << T << '\r' << std::flush;
 #endif
     }
-
     return ls.get_best();
 }
 

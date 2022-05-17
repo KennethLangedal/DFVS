@@ -25,9 +25,34 @@ void local_search::_insert(uint32_t u, uint32_t i) {
         _prev[i] = u;
         _next[u] = i;
     }
-    _config.set(u);
+    _current_cost--;
     _not_config.reset(u);
     _assign_label(u);
+
+    for (auto v : _out_edges_not_config[u]) {
+        _in_edges_not_config[v].erase(std::remove(std::begin(_in_edges_not_config[v]), std::end(_in_edges_not_config[v]), u), std::end(_in_edges_not_config[v]));
+        _in_edges_in_config[v].push_back(u);
+        // _in_edges_not_config[v].erase(std::lower_bound(std::begin(_in_edges_not_config[v]), std::end(_in_edges_not_config[v]), u));
+        // _in_edges_in_config[v].insert(std::lower_bound(std::begin(_in_edges_in_config[v]), std::end(_in_edges_in_config[v]), u), u);
+    }
+    for (auto v : _out_edges_in_config[u]) {
+        _in_edges_not_config[v].erase(std::remove(std::begin(_in_edges_not_config[v]), std::end(_in_edges_not_config[v]), u), std::end(_in_edges_not_config[v]));
+        _in_edges_in_config[v].push_back(u);
+        // _in_edges_not_config[v].erase(std::lower_bound(std::begin(_in_edges_not_config[v]), std::end(_in_edges_not_config[v]), u));
+        // _in_edges_in_config[v].insert(std::lower_bound(std::begin(_in_edges_in_config[v]), std::end(_in_edges_in_config[v]), u), u);
+    }
+    for (auto v : _in_edges_not_config[u]) {
+        _out_edges_not_config[v].erase(std::remove(std::begin(_out_edges_not_config[v]), std::end(_out_edges_not_config[v]), u), std::end(_out_edges_not_config[v]));
+        _out_edges_in_config[v].push_back(u);
+        // _out_edges_not_config[v].erase(std::lower_bound(std::begin(_out_edges_not_config[v]), std::end(_out_edges_not_config[v]), u));
+        // _out_edges_in_config[v].insert(std::lower_bound(std::begin(_out_edges_in_config[v]), std::end(_out_edges_in_config[v]), u), u);
+    }
+    for (auto v : _in_edges_in_config[u]) {
+        _out_edges_not_config[v].erase(std::remove(std::begin(_out_edges_not_config[v]), std::end(_out_edges_not_config[v]), u), std::end(_out_edges_not_config[v]));
+        _out_edges_in_config[v].push_back(u);
+        // _out_edges_not_config[v].erase(std::lower_bound(std::begin(_out_edges_not_config[v]), std::end(_out_edges_not_config[v]), u));
+        // _out_edges_in_config[v].insert(std::lower_bound(std::begin(_out_edges_in_config[v]), std::end(_out_edges_in_config[v]), u), u);
+    }
 }
 
 void local_search::_remove(uint32_t u) {
@@ -45,8 +70,33 @@ void local_search::_remove(uint32_t u) {
         _next[_prev[u]] = _next[u];
         _prev[_next[u]] = _prev[u];
     }
-    _config.reset(u);
+    _current_cost++;
     _not_config.set(u);
+
+    for (auto v : _out_edges_not_config[u]) {
+        _in_edges_in_config[v].erase(std::remove(std::begin(_in_edges_in_config[v]), std::end(_in_edges_in_config[v]), u), std::end(_in_edges_in_config[v]));
+        _in_edges_not_config[v].push_back(u);
+        // _in_edges_not_config[v].insert(std::lower_bound(std::begin(_in_edges_not_config[v]), std::end(_in_edges_not_config[v]), u), u);
+        // _in_edges_in_config[v].erase(std::lower_bound(std::begin(_in_edges_in_config[v]), std::end(_in_edges_in_config[v]), u));
+    }
+    for (auto v : _out_edges_in_config[u]) {
+        _in_edges_in_config[v].erase(std::remove(std::begin(_in_edges_in_config[v]), std::end(_in_edges_in_config[v]), u), std::end(_in_edges_in_config[v]));
+        _in_edges_not_config[v].push_back(u);
+        // _in_edges_not_config[v].insert(std::lower_bound(std::begin(_in_edges_not_config[v]), std::end(_in_edges_not_config[v]), u), u);
+        // _in_edges_in_config[v].erase(std::lower_bound(std::begin(_in_edges_in_config[v]), std::end(_in_edges_in_config[v]), u));
+    }
+    for (auto v : _in_edges_not_config[u]) {
+        _out_edges_in_config[v].erase(std::remove(std::begin(_out_edges_in_config[v]), std::end(_out_edges_in_config[v]), u), std::end(_out_edges_in_config[v]));
+        _out_edges_not_config[v].push_back(u);
+        // _out_edges_not_config[v].insert(std::lower_bound(std::begin(_out_edges_not_config[v]), std::end(_out_edges_not_config[v]), u), u);
+        // _out_edges_in_config[v].erase(std::lower_bound(std::begin(_out_edges_in_config[v]), std::end(_out_edges_in_config[v]), u));
+    }
+    for (auto v : _in_edges_in_config[u]) {
+        _out_edges_in_config[v].erase(std::remove(std::begin(_out_edges_in_config[v]), std::end(_out_edges_in_config[v]), u), std::end(_out_edges_in_config[v]));
+        _out_edges_not_config[v].push_back(u);
+        // _out_edges_not_config[v].insert(std::lower_bound(std::begin(_out_edges_not_config[v]), std::end(_out_edges_not_config[v]), u), u);
+        // _out_edges_in_config[v].erase(std::lower_bound(std::begin(_out_edges_in_config[v]), std::end(_out_edges_in_config[v]), u));
+    }
 }
 
 void local_search::_assign_label(uint32_t u) {
@@ -62,7 +112,7 @@ void local_search::_assign_label(uint32_t u) {
 }
 
 void local_search::_relable() {
-    uint64_t increment = std::numeric_limits<uint64_t>::max() / (_config.popcount() + 1);
+    uint64_t increment = std::numeric_limits<uint64_t>::max() / ((_N - _current_cost) + 1);
     uint32_t i = _first;
     uint64_t v = std::numeric_limits<uint64_t>::min() + increment;
     while (i != _N) {
@@ -73,114 +123,83 @@ void local_search::_relable() {
 }
 
 void local_search::_search_step(const sparse_graph &g) {
-    uint32_t u = *_not_config.begin().advance(_dist_int(_reng) % _not_config.popcount());
+    uint32_t u = _dist_int(_reng); //*_not_config.begin().advance(_dist_int(_reng) % _not_config.popcount());
+    while (!_not_config.get(u)) {
+        u = _dist_int(_reng);
+    }
     if (_dist_real(_reng) > 0.5) {
-        auto [i, score, w] = _move_score_first_out(g, u);
+        auto [i, score] = _move_score_first_out(g, u);
         if (score <= 0 || exp(-score / _T) > _dist_real(_reng)) {
             _apply_move(g, u, i, true);
-            if (_not_config.popcount() < _best_dfvs.popcount()) {
-                _best_dfvs.set_not(_config);
+            if (_current_cost < _best_cost) {
+                _best_cost = _current_cost;
+                _best_dfvs = _not_config;
             }
         }
     } else {
-        auto [i, score, w] = _move_score_last_in(g, u);
+        auto [i, score] = _move_score_last_in(g, u);
         if (score <= 0 || exp(-score / _T) > _dist_real(_reng)) {
             _apply_move(g, u, i, false);
-            if (_not_config.popcount() < _best_dfvs.popcount()) {
-                _best_dfvs.set_not(_config);
+            if (_current_cost < _best_cost) {
+                _best_cost = _current_cost;
+                _best_dfvs = _not_config;
             }
         }
     }
 }
 
-void local_search::big_search_step(const sparse_graph &g, uint32_t n, uint32_t B) {
-    static bitvector options(g.size());
-    options.set_and_not(_not_config, _tabu);
-    _tabu.set_not(_not_config);
-    while (n > 0 && options.popcount() > 0) {
-        uint32_t best_u = _N, best_i;
-        float best_score = std::numeric_limits<float>::max();
-        bool best_pos;
-        for (size_t t = 0; t < B; t++) {
-            uint32_t u = *options.begin().advance(_dist_int(_reng) % options.popcount());
-            if (_dist_real(_reng) > 0.5) {
-                auto [i, score, w] = _move_score_first_out(g, u);
-                if (score < best_score) {
-                    best_score = score;
-                    best_u = u;
-                    best_i = i;
-                    best_pos = true;
-                }
-            } else {
-                auto [i, score, w] = _move_score_last_in(g, u);
-                if (score < best_score) {
-                    best_score = score;
-                    best_u = u;
-                    best_i = i;
-                    best_pos = false;
-                }
-            }
-        }
-        _apply_move(g, best_u, best_i, best_pos);
-        options.reset(best_u);
-        _tabu.set_and(_tabu, _not_config);
-        --n;
-        if (_not_config.popcount() < _best_dfvs.popcount()) {
-            _best_dfvs.set_not(_config);
-        }
-    }
-}
-
-std::tuple<uint32_t, float, uint32_t> local_search::_move_score_first_out(const sparse_graph &g, uint32_t u) const {
+std::tuple<uint32_t, float> local_search::_move_score_first_out(const sparse_graph &g, uint32_t u) const {
     float cost = -1;
-    uint32_t i = _N, w = _N;
-    for (auto v : g.out(u)) {
-        if (_config.get(v) && (i == _N || _config_order[v] < _config_order[i])) {
+    uint32_t i = _N;
+    for (auto v : _out_edges_in_config[u]) {
+        if (i == _N || _config_order[v] < _config_order[i]) {
             i = v;
         }
     }
     if (i != _N) {
-        for (auto v : g.in(u)) {
-            if (_config.get(v) && _config_order[v] >= _config_order[i]) {
-                w = v;
+        for (auto v : _in_edges_in_config[u]) {
+            if (_config_order[v] >= _config_order[i]) {
                 ++cost;
             }
         }
     }
-    return {i, cost, w};
+    return {i, cost};
 }
 
-std::tuple<uint32_t, float, uint32_t> local_search::_move_score_last_in(const sparse_graph &g, uint32_t u) const {
+std::tuple<uint32_t, float> local_search::_move_score_last_in(const sparse_graph &g, uint32_t u) const {
     float cost = -1;
-    uint32_t i = _first, w = _N;
-    for (auto v : g.in(u)) {
-        if (_config.get(v) && (i == _N || _config_order[v] > _config_order[i])) {
+    uint32_t i = _first;
+    for (auto v : _in_edges_in_config[u]) {
+        if (i == _N || _config_order[v] > _config_order[i]) {
             i = v;
         }
     }
     if (i != _N) {
-        for (auto v : g.out(u)) {
-            if (_config.get(v) && _config_order[v] <= _config_order[i]) {
-                w = v;
+        for (auto v : _out_edges_in_config[u]) {
+            if (_config_order[v] <= _config_order[i]) {
                 ++cost;
             }
         }
         i = _next[i];
     }
-    return {i, cost, w};
+    return {i, cost};
 }
 
 void local_search::_apply_move(const sparse_graph &g, uint32_t u, uint32_t i, bool pos) {
     _insert(u, i);
+    static std::vector<uint32_t> tmp;
+    tmp.clear();
     if (pos) {
-        for (auto v : g.in(u)) {
-            if (_config.get(v) && _config_order[v] > _config_order[u]) {
+        std::copy(std::begin(_in_edges_in_config[u]), std::end(_in_edges_in_config[u]), std::back_inserter(tmp));
+        for (auto v : tmp) {
+            if (_config_order[v] > _config_order[u]) {
                 _remove(v);
             }
         }
     } else {
-        for (auto v : g.out(u)) {
-            if (_config.get(v) && _config_order[v] < _config_order[u]) {
+        std::copy(std::begin(_out_edges_in_config[u]), std::end(_out_edges_in_config[u]), std::back_inserter(tmp));
+        for (auto v : tmp) {
+            if (_config_order[v] < _config_order[u]) {
                 _remove(v);
             }
         }
@@ -188,13 +207,23 @@ void local_search::_apply_move(const sparse_graph &g, uint32_t u, uint32_t i, bo
 }
 
 local_search::local_search(const sparse_graph &g, double T, size_t seed)
-    : _next(g.size()), _prev(g.size()), _vertices(g.size()), _first(g.size()), _last(g.size()), _N(g.size()),
-      _config_order(g.size()), _config(g.size()), _not_config(g.size()), _best_dfvs(g.size()), _tabu(g.size()),
-      _reng(seed), _dist_int(0, std::numeric_limits<uint32_t>::max()), _dist_real(0.0, 1.0), _T(T) {
+    : _next(g.size()), _prev(g.size()), _vertices(g.size()), _first(g.size()), _last(g.size()), _N(g.size()), _current_cost(g.size()), _best_cost(g.size()),
+      _out_edges_in_config(g.size()), _in_edges_in_config(g.size()), _out_edges_not_config(g.size()), _in_edges_not_config(g.size()),
+      _config_order(g.size()), _not_config(g.size()), _best_dfvs(g.size()),
+      _reng(seed), _dist_int(0, g.size() - 1), _dist_real(0.0, 1.0), _T(T) {
     _best_dfvs.fill();
     _not_config.fill();
 
     std::iota(std::begin(_vertices), std::end(_vertices), (uint32_t)0);
+
+    for (auto u : g.active_vertices()) {
+        for (auto v : g.out(u)) {
+            _out_edges_not_config[u].push_back(v);
+        }
+        for (auto v : g.in(u)) {
+            _in_edges_not_config[u].push_back(v);
+        }
+    }
 }
 
 void local_search::search(const sparse_graph &g, size_t iterations) {
@@ -208,11 +237,12 @@ void local_search::set_temperature(double T) {
 }
 
 void local_search::set_solution(const sparse_graph &g, const bitvector &fvs) {
-    _config.set_not(fvs);
-    _not_config.set_not(_config);
+    _not_config = fvs;
+    _current_cost = _not_config.popcount();
     shuffle_solution(g);
-    if (_not_config.popcount() < _best_dfvs.popcount()) {
-        _best_dfvs.set_not(_config);
+    if (_current_cost < _best_cost) {
+        _best_cost = _current_cost;
+        _best_dfvs = _not_config;
     }
 }
 
@@ -221,7 +251,7 @@ void local_search::shuffle_solution(const sparse_graph &g) {
     std::fill(std::begin(_config_order), std::end(_config_order), 0);
 
     std::function<void(uint32_t)> visit = [&](uint32_t u) {
-        if (!_config.get(u) || _config_order[u] != 0)
+        if (_not_config.get(u) || _config_order[u] != 0)
             return;
 
         _config_order[u] = 1;
@@ -256,10 +286,10 @@ void local_search::greedy_one_zero_swaps(const sparse_graph &g) {
     while (found) {
         found = false;
         for (auto u : _vertices) {
-            if (_config.get(u))
+            if (!_not_config.get(u))
                 continue;
-            auto [i_t, score_t, w_t] = _move_score_first_out(g, u);
-            auto [i_f, score_f, w_f] = _move_score_last_in(g, u);
+            auto [i_t, score_t] = _move_score_first_out(g, u);
+            auto [i_f, score_f] = _move_score_last_in(g, u);
             if (score_t < 0) {
                 _apply_move(g, u, i_t, true);
                 found = true;
@@ -273,8 +303,9 @@ void local_search::greedy_one_zero_swaps(const sparse_graph &g) {
             }
         }
     }
-    if (_not_config.popcount() < _best_dfvs.popcount()) {
-        _best_dfvs.set_not(_config);
+    if (_current_cost < _best_cost) {
+        _best_cost = _current_cost;
+        _best_dfvs = _not_config;
     }
 }
 
@@ -284,4 +315,12 @@ const bitvector &local_search::get_best() const {
 
 const bitvector &local_search::get_current() const {
     return _not_config;
+}
+
+const uint32_t &local_search::get_best_cost() const {
+    return _best_cost;
+}
+
+const uint32_t &local_search::get_current_cost() const {
+    return _current_cost;
 }
