@@ -47,6 +47,28 @@ void reduction_engine::_undo_remove_vertex(sparse_graph &g, size_t u) {
     g.reactivate_vertex(u);
 }
 
+void reduction_engine::fold_twin(sparse_graph &g, uint32_t u, uint32_t v, bitvector &fvs) {
+    uint32_t n[3], i = 0;
+    for (auto x : g.pi(u))
+        n[i++] = x;
+    remove_include_vertex(g, u);
+    remove_include_vertex(g, v);
+    for (auto w : g.pi(n[1])) {
+        add_edge(g, n[0], w);
+        add_edge(g, w, n[0]);
+    }
+    for (auto w : g.pi(n[2])) {
+        add_edge(g, n[0], w);
+        add_edge(g, w, n[0]);
+    }
+    remove_include_vertex(g, n[1]);
+    remove_include_vertex(g, n[2]);
+
+    fvs.set(u);
+    fvs.set(v);
+    _log.push_back({reduction::fold_twin, u, v, n[0], 0, 0});
+}
+
 void reduction_engine::fold_clique_and_one(sparse_graph &g, uint32_t u, uint32_t v, bitvector &fvs) {
     for (auto w1 : g.out(u)) { // for every vertex in clique
         if (w1 == v)
@@ -115,6 +137,16 @@ void reduction_engine::unfold_graph(sparse_graph &g, size_t time, bitvector &fvs
             break;
         case reduction::remove_vertex:
             _undo_remove_vertex(g, u);
+            break;
+        case reduction::fold_twin:
+            if (fvs.get(v2)) {
+                fvs.reset(u);
+                fvs.reset(v1);
+
+                for (auto x : g.pi(u)) {
+                    fvs.set(x);
+                }
+            }
             break;
         case reduction::fold_clique_and_one:
             all = true;

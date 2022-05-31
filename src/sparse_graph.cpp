@@ -81,6 +81,13 @@ void sparse_graph::reactivate_vertex(uint32_t u) {
     }
 
     _active.set(u);
+
+    for (auto v : out(u)) {
+        assert(is_active(v));
+    }
+    for (auto v : in(u)) {
+        assert(is_active(v));
+    }
 }
 
 void sparse_graph::remove_vertex(uint32_t u) {
@@ -101,6 +108,13 @@ void sparse_graph::remove_vertex(uint32_t u) {
         _pi_edges[v].erase(std::lower_bound(std::begin(_pi_edges[v]), std::end(_pi_edges[v]), u));
         _out_edges[v].erase(std::lower_bound(std::begin(_out_edges[v]), std::end(_out_edges[v]), u));
         _in_edges[v].erase(std::lower_bound(std::begin(_in_edges[v]), std::end(_in_edges[v]), u));
+    }
+
+    for (auto v : out(u)) {
+        assert(is_active(v));
+    }
+    for (auto v : in(u)) {
+        assert(is_active(v));
     }
 
     _active.reset(u);

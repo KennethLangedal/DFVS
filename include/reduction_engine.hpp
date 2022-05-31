@@ -5,6 +5,7 @@ enum class reduction {
     add_edge,
     remove_edge,
     remove_vertex,
+    fold_twin,
     fold_clique_and_one,
     fold_square
 };
@@ -27,6 +28,7 @@ public:
     void remove_edge(sparse_graph &g, uint32_t u, uint32_t v);
     void remove_include_vertex(sparse_graph &g, uint32_t u);
     void remove_exclude_vertex(sparse_graph &g, uint32_t u);
+    void fold_twin(sparse_graph &g, uint32_t u, uint32_t v, bitvector &fvs);
     void fold_clique_and_one(sparse_graph &g, uint32_t u, uint32_t v, bitvector &fvs);
     void fold_square(sparse_graph &g, uint32_t u, uint32_t v1, uint32_t v2, uint32_t w1, uint32_t w2, bitvector &fvs);
 

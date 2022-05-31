@@ -9,7 +9,7 @@ int main(int, char **) {
     auto fvs = solve(g);
 
 #ifdef VERBOSE
-    cout << "Solution size " << fvs.popcount() << endl;
+    cout << "\x1b[2K" << "Solution size " << fvs.popcount() << endl;
 #else
     for (size_t v : fvs) {
         cout << v + 1 << endl;

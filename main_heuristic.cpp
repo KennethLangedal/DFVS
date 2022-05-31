@@ -24,34 +24,66 @@ Ts = 0.15 + ((1.0 - (std::min((double)ls.get_best().popcount(), 100000.0) / 1000
 */
 
 bitvector search_until_signal(sparse_graph g, size_t cost = 0) {
-    double Ts = 0.35, Tf = 0.08, T = Ts, alfa = 0.999;
+
+    // ofstream fs("scripts/plot_data");
+    // for (auto u : g.active_vertices()) {
+    //     for (auto v : g.out(u)) {
+    //         fs << u << " " << v << std::endl;
+    //     }
+    // }
+
+    local_search ls(g, 0.2, 3);
+    ls.greedy_one_zero_swaps();
+    ls.greedy_one_zero_swaps();
+
+    double avg_move_cost = ls.get_average_move_cost(g);
+    double T_offset = (std::max(std::min(avg_move_cost, 7.0), 0.0) / 7.0) * 0.1;
+    double Ts_offset = (1.0 - ((double)ls.get_best_cost() / (double)g.size())) * 0.3;
+
+    double Ts = 0.15 + Ts_offset + T_offset, Tf = 0.05 + T_offset, T = Ts, alfa = 0.999;
 
 #ifdef VERBOSE
     std::cout << "Ts " << Ts << ", Tf " << Tf << std::endl;
 #endif
 
-    local_search ls(g, T, 0);
-    uint32_t imp = g.size(), no_imp = 0;
-    ls.greedy_one_zero_swaps(g);
+    uint32_t imp = g.size();
+
+#ifdef VERBOSE
+    std::cout << "Average move cost: " << ls.get_average_move_cost(g) << std::endl;
+#endif
+
+    uint64_t it = 0;
+    int32_t two_one_imps_left = 0;
 
     while (!tle) {
         ls.set_temperature(T);
-        ls.search(g, 10000);
+        ls.search(g, g.size() * (1.0 - ((T - Tf) / (Ts - Tf))));
 
-        if (imp > ls.get_best().popcount()) {
-            imp = ls.get_best().popcount();
-            no_imp = 0;
-        } else if (no_imp++ > 3) {
+        if (imp > ls.get_best_cost()) {
+            imp = ls.get_best_cost();
+        } else {
             T *= alfa;
             if (T < Tf) {
-                ls.shuffle_solution(g);
-                ls.greedy_one_zero_swaps(g);
+                ls.greedy_one_zero_swaps();
+                ls.greedy_one_zero_swaps_dfs(g);
+                if (g.size() < 10000) {
+                    while (ls.check_every_two_one_swap(g)) {
+                        two_one_imps_left++;
+                        ls.greedy_one_zero_swaps();
+                        ls.greedy_one_zero_swaps_dfs(g);
+                    }
+                }
+                // if (ls.get_current_cost() > ls.get_best_cost())
+                //     ls.return_to_best(g);
+
+                // ls.random_walk(10);
                 T = Ts;
             }
-            no_imp = 0;
         }
+
 #ifdef VERBOSE
-        std::cout << "\x1b[2K" << ls.get_best().popcount() + cost << " " << ls.get_current().popcount() + cost << " " << T << '\r' << std::flush;
+        if ((it++ & ((1 << 4) - 1)) == 0)
+            std::cout << "\x1b[2K" << ls.get_best_cost() + cost << " " << ls.get_current_cost() + cost << " " << T << " " << two_one_imps_left << '\r' << std::flush;
 #endif
     }
     return ls.get_best();
@@ -66,7 +98,7 @@ void solve_heuristic(sparse_graph &g) {
     cout << "Starting reductions" << endl;
 #endif
 
-    reduce_graph(g, res, gs, re, true);
+    reduce_graph(g, res, gs, re, false);
 
     if (g.active_vertices().popcount() == 0) {
         re.unfold_graph(g, 0, res);
@@ -99,14 +131,15 @@ void solve_heuristic(sparse_graph &g) {
         res.set(_g.original_label(u));
     }
 
-    re.unfold_graph(g, 0, res);
+    cout << "\x1b[2K";
 
-#ifdef VERBOSE
+#ifdef _VERBOSE
     cout << "\x1b[2K" << res.popcount() << endl;
 #else
     for (auto u : res) {
-        cout << u + 1 << endl;
+        cout << u + 1 << "\n";
     }
+    cout << flush;
 #endif
 }
 

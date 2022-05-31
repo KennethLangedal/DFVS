@@ -97,16 +97,26 @@ uint32_t reducing_peeling_lower_bound(sparse_graph &g) {
     return fvs.popcount();
 }
 
-bitvector local_search_upper_bound(sparse_graph &g) {
+bitvector local_search_upper_bound(const sparse_graph &g, size_t iterations) {
     local_search ls(g, 0.25, 0);
-    ls.greedy_one_zero_swaps(g);
+    ls.greedy_one_zero_swaps();
 
     double T = 0.25;
 
-    while (T > 0.1) {
+    while (iterations > 0) {
         ls.set_temperature(T);
-        ls.search(g, std::max(g.size(), 2500ul));
+        ls.search(g, g.size() * (1.0 - ((T - 0.05) / (0.35 - 0.05))));
+
         T *= 0.999;
+        if (T < 0.05) {
+            ls.greedy_one_zero_swaps();
+            ls.greedy_one_zero_swaps_dfs(g);
+            if (ls.get_current_cost() > ls.get_best_cost())
+                ls.return_to_best(g);
+
+            T = 0.25;
+            iterations--;
+        }
     }
 
     return ls.get_best();

@@ -35,10 +35,20 @@ size_t pop_search(graph_search &gs, size_t rule) {
 }
 
 void queue_neighbourhood(sparse_graph &g, graph_search &gs, size_t u) {
-    for (auto v : g.out(u))
+    for (auto v : g.out(u)) {
         push_search(gs, v);
-    for (auto v : g.in(u))
+        for (auto w : g.out(v))
+            push_search(gs, w);
+        for (auto w : g.in(v))
+            push_search(gs, w);
+    }
+    for (auto v : g.in(u)) {
         push_search(gs, v);
+        for (auto w : g.out(v))
+            push_search(gs, w);
+        for (auto w : g.in(v))
+            push_search(gs, w);
+    }
 }
 
 void add_to_fvs(sparse_graph &g, bitvector &fvs, graph_search &gs, reduction_engine &re, size_t u) {
@@ -128,6 +138,7 @@ bool redundant_edges(sparse_graph &g, bitvector &fvs, graph_search &gs, reductio
     if (res) {
         for (auto v : gs.tmp) {
             re.remove_edge(g, u, v);
+            push_search(gs, v);
         }
         push_search(gs, u);
     }
@@ -228,7 +239,7 @@ bool cycle_dominating_vertex(sparse_graph &g, bitvector &fvs, graph_search &gs, 
 }
 
 bool twin_vertices_reduction(sparse_graph &g, bitvector &fvs, graph_search &gs, reduction_engine &re, size_t u) {
-    assert(g.is_active(u));
+    assert(g.is_active(u) && g.out_degree(u) > 0);
 
     gs.tmp.clear();
     gs.tmp.push_back(u);
@@ -245,15 +256,25 @@ bool twin_vertices_reduction(sparse_graph &g, bitvector &fvs, graph_search &gs, 
         return true;
     }
 
-    // if (gs.tmp.size() > 1 && (gs.tmp.size() + 1 >= g.out_degree(u) || gs.tmp.size() + 1 >= g.in_degree(u))) {
-    //     for (auto v : g.pi(u)) {
-    //         if (intersection_size(g.pi(u), g.pi(v)) > 0) {
-    //             for (auto v : gs.tmp)
-    //                 exclude_from_fvs(g, fvs, gs, re, v);
-    //             return true;
-    //         }
-    //     }
-    // }
+    if (g.pi_only(u) && g.pi_degree(u) == 3 && gs.tmp.size() == 2) {
+        for (auto v : g.pi(u)) {
+            if (intersection_size(g.pi(u), g.pi(v)) > 0) {
+                for (auto v : gs.tmp)
+                    exclude_from_fvs(g, fvs, gs, re, v);
+                return true;
+            }
+        }
+        for (auto v : g.pi(u)) {
+            if (!g.pi_only(v))
+                return false;
+        }
+        uint32_t f = *std::begin(g.pi(u));
+        re.fold_twin(g, gs.tmp[0], gs.tmp[1], fvs);
+        queue_neighbourhood(g, gs, f);
+        push_search(gs, f);
+        return true;
+    }
+
     return false;
 }
 
@@ -379,7 +400,7 @@ bool specific_pattern(sparse_graph &g, bitvector &fvs, graph_search &gs, reducti
 // *global-SCC*
 // ************
 
-bool SCC_edge_reduction(sparse_graph &g, bitvector &fvs, graph_search &gs) {
+bool SCC_edge_reduction(sparse_graph &g, bitvector &fvs, graph_search &gs, reduction_engine &re) {
     gs.DFS_stack.clear();
     gs.L.clear();
     gs.DFS_visited.clear();
@@ -420,7 +441,7 @@ bool SCC_edge_reduction(sparse_graph &g, bitvector &fvs, graph_search &gs) {
     for (auto u : g.active_vertices()) {
         for (auto v : g.out(u)) {
             if (gs.SCC_id[u] != gs.SCC_id[v]) {
-                g.remove_edge(u, v);
+                re.remove_edge(g, u, v);
                 push_search(gs, u);
                 push_search(gs, v);
                 res = true;
@@ -430,8 +451,6 @@ bool SCC_edge_reduction(sparse_graph &g, bitvector &fvs, graph_search &gs) {
 
     return res;
 }
-
-#include <fstream>
 
 bool reduction_half_lp(sparse_graph &g, bitvector &fvs, graph_search &gs, reduction_engine &re) {
     for (auto u : g.active_vertices()) {
@@ -489,6 +508,11 @@ bool reduction_half_lp(sparse_graph &g, bitvector &fvs, graph_search &gs, reduct
         }
     }
 
+#ifdef VERBOSE
+    if (res)
+        std::cout << "LP did something" << std::endl;
+#endif
+
     return res;
 }
 
@@ -529,10 +553,12 @@ void reduce_graph(sparse_graph &g, bitvector &fvs, graph_search &gs, reduction_e
                 found = twin_vertices_reduction(g, fvs, gs, re, u);
                 break;
             case reductions::clique_and_one_fold:
-                found = clique_and_one_fold(g, fvs, gs, re, u);
+                if (SCC)
+                    found = clique_and_one_fold(g, fvs, gs, re, u);
                 break;
             case reductions::square_fold:
-                found = square_fold(g, fvs, gs, re, u);
+                if (SCC)
+                    found = square_fold(g, fvs, gs, re, u);
                 break;
             case reductions::specific_pattern:
                 found = specific_pattern(g, fvs, gs, re, u);
@@ -541,7 +567,7 @@ void reduce_graph(sparse_graph &g, bitvector &fvs, graph_search &gs, reduction_e
                 break;
             }
         }
-        if (found || (SCC && rule == num_reductions && (SCC_edge_reduction(g, fvs, gs) || reduction_half_lp(g, fvs, gs, re)))) {
+        if (found || (SCC && rule == num_reductions && (SCC_edge_reduction(g, fvs, gs, re) || reduction_half_lp(g, fvs, gs, re)))) {
             rule = 0;
         }
     }
