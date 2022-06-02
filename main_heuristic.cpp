@@ -1,6 +1,5 @@
 #include "bounds.hpp"
 #include "local_search.hpp"
-#include "local_search_edgew.hpp"
 #include "reductions.hpp"
 #include <algorithm>
 #include <cmath>
@@ -18,20 +17,7 @@ void term(int signum) {
     tle = 1;
 }
 
-/*
-double Ts = 0.15 + ((1.0 - (std::min((double)g.size(), 100000.0) / 100000.0)) * 0.2)
-Ts = 0.15 + ((1.0 - (std::min((double)ls.get_best().popcount(), 100000.0) / 100000.0)) * 0.15);
-*/
-
 bitvector search_until_signal(sparse_graph g, size_t cost = 0) {
-
-    // ofstream fs("scripts/plot_data");
-    // for (auto u : g.active_vertices()) {
-    //     for (auto v : g.out(u)) {
-    //         fs << u << " " << v << std::endl;
-    //     }
-    // }
-
     local_search ls(g, 0.2, 3);
     ls.greedy_one_zero_swaps();
     ls.greedy_one_zero_swaps();
@@ -73,10 +59,7 @@ bitvector search_until_signal(sparse_graph g, size_t cost = 0) {
                         ls.greedy_one_zero_swaps_dfs(g);
                     }
                 }
-                // if (ls.get_current_cost() > ls.get_best_cost())
-                //     ls.return_to_best(g);
 
-                // ls.random_walk(10);
                 T = Ts;
             }
         }
@@ -131,7 +114,7 @@ void solve_heuristic(sparse_graph &g) {
         res.set(_g.original_label(u));
     }
 
-    cout << "\x1b[2K";
+    re.unfold_graph_lazy(g, 0, res);
 
 #ifdef _VERBOSE
     cout << "\x1b[2K" << res.popcount() << endl;

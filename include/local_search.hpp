@@ -24,21 +24,15 @@ private:
     void _relable();
 
     void _search_step();
-    void _search_step_double(const sparse_graph &g);
 
     std::tuple<uint32_t, float> _move_score_first_out(uint32_t u) const;
     std::tuple<uint32_t, float> _move_score_last_in(uint32_t u) const;
 
-    std::tuple<uint32_t, uint32_t, float> _move_score_first_out_double(const sparse_graph &g, uint32_t u, uint32_t v) const;
-    std::tuple<uint32_t, uint32_t, float> _move_score_last_in_double(const sparse_graph &g, uint32_t u, uint32_t v) const;
-
     void _apply_move(uint32_t u, uint32_t i, bool pos);
-
-    void _apply_move_double(const sparse_graph &g, uint32_t u, uint32_t i, uint32_t v, uint32_t j, bool pos);
 
     void _greedy_strictly_improving_move(const sparse_graph &g, uint32_t u);
 
-    std::vector<uint32_t> _one_one_candidates(uint32_t u);
+    void _one_one_candidates(uint32_t u, std::vector<std::vector<uint32_t>> &cand_list);
 
     bool _two_one_swap_test(const sparse_graph &g, uint32_t u, uint16_t v, uint32_t w);
 
@@ -47,19 +41,9 @@ public:
 
     void search(const sparse_graph &g, size_t iterations);
 
-    void search_double(const sparse_graph &g, size_t iterations);
-
-    void search_greedy(const sparse_graph &g, size_t iterations);
-
     bool check_every_two_one_swap(const sparse_graph &g);
 
     void set_temperature(double T);
-
-    void return_to_best(const sparse_graph &g);
-
-    void random_walk(uint32_t steps);
-
-    void set_solution(const sparse_graph &g, const bitvector &fvs);
 
     void greedy_one_zero_swaps();
 

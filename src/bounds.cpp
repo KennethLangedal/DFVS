@@ -111,8 +111,6 @@ bitvector local_search_upper_bound(const sparse_graph &g, size_t iterations) {
         if (T < 0.05) {
             ls.greedy_one_zero_swaps();
             ls.greedy_one_zero_swaps_dfs(g);
-            if (ls.get_current_cost() > ls.get_best_cost())
-                ls.return_to_best(g);
 
             T = 0.25;
             iterations--;

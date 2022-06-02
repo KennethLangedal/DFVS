@@ -178,3 +178,50 @@ void reduction_engine::unfold_graph(sparse_graph &g, size_t time, bitvector &fvs
         }
     }
 }
+
+void reduction_engine::unfold_graph_lazy(sparse_graph &g, size_t time, bitvector &fvs) {
+    while (_log.size() > time) {
+        auto [t, u, v1, v2, w1, w2] = _log.back();
+        bool all;
+        _log.pop_back();
+        switch (t) {
+        case reduction::fold_twin:
+            if (fvs.get(v2)) {
+                fvs.reset(u);
+                fvs.reset(v1);
+
+                for (auto x : g.pi(u)) {
+                    fvs.set(x);
+                }
+            }
+            break;
+        case reduction::fold_clique_and_one:
+            all = true;
+            for (auto x : g.out(u)) {
+                if (x != v1 && !fvs.get(x))
+                    all = false;
+            }
+            if (all) {
+                fvs.reset(u);
+                fvs.set(v1);
+            }
+            break;
+        case reduction::fold_square:
+            fvs.reset(v2);
+            fvs.reset(w2);
+            if (fvs.get(v1)) {
+                fvs.set(v2);
+            }
+            if (fvs.get(w1)) {
+                fvs.set(w2);
+            }
+            if (!(fvs.get(v1) && fvs.get(w1))) {
+                fvs.set(u);
+            }
+            break;
+
+        default:
+            break;
+        }
+    }
+}

@@ -553,12 +553,10 @@ void reduce_graph(sparse_graph &g, bitvector &fvs, graph_search &gs, reduction_e
                 found = twin_vertices_reduction(g, fvs, gs, re, u);
                 break;
             case reductions::clique_and_one_fold:
-                if (SCC)
-                    found = clique_and_one_fold(g, fvs, gs, re, u);
+                found = clique_and_one_fold(g, fvs, gs, re, u);
                 break;
             case reductions::square_fold:
-                if (SCC)
-                    found = square_fold(g, fvs, gs, re, u);
+                found = square_fold(g, fvs, gs, re, u);
                 break;
             case reductions::specific_pattern:
                 found = specific_pattern(g, fvs, gs, re, u);

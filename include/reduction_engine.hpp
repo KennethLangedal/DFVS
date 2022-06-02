@@ -35,4 +35,5 @@ public:
     size_t get_timestamp() const;
 
     void unfold_graph(sparse_graph &g, size_t time, bitvector &fvs);
+    void unfold_graph_lazy(sparse_graph &g, size_t time, bitvector &fvs);
 };
