@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/460608455.svg)](https://zenodo.org/badge/latestdoi/460608455)
+
 # Directed Feedback Vertex Set: PACE 2022
 
 This repository contains both an exact and heuristic solver. However, only the heuristic solver is relevant for the PACE challenge 2022.
